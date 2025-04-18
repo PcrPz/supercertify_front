@@ -7,11 +7,11 @@ const Navbar = () => {
       {/* Logo */}
       <Link href="/">
         <div className="flex items-center">
-          <Image 
-            src="/LogoSC.png" 
-            alt="SuperCertify Logo" 
-            width={220} 
-            height={50} 
+          <Image
+            src="/LogoSC.png"
+            alt="SuperCertify Logo"
+            width={220}
+            height={50}
             className="cursor-pointer"
           />
         </div>
@@ -39,7 +39,7 @@ const Navbar = () => {
         </Link>
         <Link href="/login">
           <button className="bg-blue-600 text-white font-medium px-5 py-1.5 rounded-full hover:bg-blue-700 transition">
-            Login
+            Log In
           </button>
         </Link>
       </div>

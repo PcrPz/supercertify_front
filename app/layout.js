@@ -1,6 +1,7 @@
 import { Fustat } from 'next/font/google';
 import Footer from '@/components/Footer';
 import './globals.css';
+import Navbar from '@/components/Navbar';
 
 // กำหนดค่า Google font
 const fustat = Fustat({
@@ -19,10 +20,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="th">
       <body className={`${fustat.variable} font-fustat`}>
+        <Navbar/>
         <main>
           {children}
         </main>
-        <Footer />
+        <Footer/>
       </body>
     </html>
   );

@@ -127,7 +127,7 @@ export default function ServiceSection() {
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-5xl font-bold text-center mb-4 text-black">Our Service</h2>
-        <p className="text-center text-gray-600 mb-12">
+        <p className="text-center text-gray-600 mb-12 font-bold text-[18px]">
           We have many types of check backgrounds for you to choose from according to your needs.
         </p>
         
@@ -146,7 +146,7 @@ export default function ServiceSection() {
           <div className="flex justify-center mt-12">
             <button 
               onClick={loadMore}
-              className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-medium py-3 px-12 rounded-full transition duration-300"
+              className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-medium py-3 px-12 rounded-full transition duration-300 text-[20px]"
             >
               {buttonText}
             </button>
