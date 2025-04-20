@@ -27,9 +27,9 @@ const Login = () => {
         {/* Main content */}
         <div className="flex-grow flex flex-col md:flex-row">
           {/* Login form section */}
-          <div className="w-full md:w-1/2 px-6 md:px-20 py-12 flex flex-col justify-center">
-            <div className="max-w-md mx-auto w-full">
-              <h1 className="text-5xl font-bold text-gray-800 mb-4">Log In</h1>
+          <div className="w-full md:w-1/2 px-6 md:px-5 py-5 flex flex-col justify-center">
+            <div className="max-w-3/4 mx-auto w-full">
+              <h1 className="text-6xl font-bold text-gray-800 mb-4">Log In</h1>
               <p className="text-xl text-gray-700 mb-10">Welcome back! Please enter your email and password.</p>
 
               <form onSubmit={handleSubmit}>

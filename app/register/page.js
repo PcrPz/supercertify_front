@@ -1,0 +1,163 @@
+"use client"
+import { useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+
+const Register = () => {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Handle registration logic here
+    console.log({ username, email, password });
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Main content */}
+      <div className="flex-grow flex flex-col md:flex-row">
+        {/* Registration form section */}
+        <div className="w-full md:w-1/2 px-6 md:px-5 py-5 flex flex-col justify-center">
+          <div className="max-w-3/4 mx-auto w-full">
+            <p className="text-gray-500 uppercase font-medium tracking-wide">START FOR FREE</p>
+            <h1 className="text-6xl font-bold text-gray-800 mt-4 mb-6">Create new account<span className="text-yellow-400">.</span></h1>
+            
+            <p className="text-xl text-gray-700 mb-8">
+              Already A Member? 
+              <Link href="/login" className="text-blue-600 ml-2 hover:text-blue-800">
+                Log In
+              </Link>
+            </p>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Username"
+                  required
+                />
+                <div className="absolute right-4 top-3.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Email"
+                  required
+                />
+                <div className="absolute right-4 top-3.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                  </svg>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Password"
+                  required
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-3.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    {showPassword ? (
+                      <>
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </>
+                    ) : (
+                      <>
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                        <path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                        <line x1="2" x2="22" y1="2" y2="22"></line>
+                      </>
+                    )}
+                  </svg>
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 text-white font-medium py-3 px-4 rounded-full hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Create Account
+              </button>
+            </form>
+
+            <div className="mt-8 text-center">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-4 text-sm text-gray-500">or login with</span>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-4">
+                <button 
+                  type="button"
+                  className="flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-full bg-yellow-400 hover:bg-yellow-500 text-gray-700 font-medium transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032 s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2 C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+                  </svg>
+                  Google
+                </button>
+                <button 
+                  type="button"
+                  className="flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-full bg-yellow-400 hover:bg-yellow-500 text-gray-700 font-medium transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                  Facebook
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Image section */}
+        <div className="hidden md:flex md:w-1/2 bg-blue-50 items-center justify-center">
+          <div className="relative w-[600px] h-[600px] flex items-center justify-center mx-auto">
+            <div className="absolute inset-0 bg-blue-600 rounded-3xl opacity-20"></div>
+            <img 
+              src="/screen-share.png" 
+              alt="Computer illustration" 
+              className="w-[500px] h-[500px] object-contain z-10"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
