@@ -1,41 +1,19 @@
-'use client'
+"use client"
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { register } from '../../services/auth';
+import Image from 'next/image';
 
 const Register = () => {
-    const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    
-    const router = useRouter();
-  
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      setLoading(true);
-      setError('');
-      
-      try {
-        const registerData = {
-          username,
-          email,
-          password,
-          role: 'user'
-        };
-        
-        await register(registerData);
-        router.push('/dashboard');
-        
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Handle registration logic here
+    console.log({ username, email, password });
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -54,12 +32,6 @@ const Register = () => {
               </Link>
             </p>
 
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="relative">
                 <input
@@ -70,7 +42,6 @@ const Register = () => {
                   className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Username"
                   required
-                  disabled={loading}
                 />
                 <div className="absolute right-4 top-3.5">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
@@ -89,7 +60,6 @@ const Register = () => {
                   className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Email"
                   required
-                  disabled={loading}
                 />
                 <div className="absolute right-4 top-3.5">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
@@ -108,14 +78,11 @@ const Register = () => {
                   className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Password"
                   required
-                  disabled={loading}
-                  minLength={6}
                 />
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-3.5"
-                  disabled={loading}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
                     {showPassword ? (
@@ -137,12 +104,9 @@ const Register = () => {
 
               <button
                 type="submit"
-                className={`w-full bg-blue-600 text-white font-medium py-3 px-4 rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'
-                }`}
-                disabled={loading}
+                className="w-full bg-blue-600 text-white font-medium py-3 px-4 rounded-full hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
-                {loading ? 'Creating Account...' : 'Create Account'}
+                Create Account
               </button>
             </form>
 
@@ -160,7 +124,6 @@ const Register = () => {
                 <button 
                   type="button"
                   className="flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-full bg-yellow-400 hover:bg-yellow-500 text-gray-700 font-medium transition"
-                  disabled={loading}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032 s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2 C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
@@ -170,7 +133,6 @@ const Register = () => {
                 <button 
                   type="button"
                   className="flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-full bg-yellow-400 hover:bg-yellow-500 text-gray-700 font-medium transition"
-                  disabled={loading}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
