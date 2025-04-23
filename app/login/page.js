@@ -35,6 +35,7 @@ const Login = () => {
         router.push(callbackUrl);
       } else {
         router.push('/dashboard');
+        router.refresh()
       }
       
     } catch (err) {

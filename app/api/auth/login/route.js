@@ -13,6 +13,7 @@ const COOKIE_OPTIONS = {
 
 export async function POST(request) {
   try {
+
     // ดึงข้อมูลจาก request
     const loginData = await request.json();
     console.log('Login data:', loginData);

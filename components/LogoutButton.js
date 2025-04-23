@@ -13,7 +13,7 @@ export default function LogoutButton() {
     try {
       await logout();
       router.push('/login');
-    //   router.refresh() // หรือ router.refresh()
+      router.refresh() // หรือ router.refresh()
     } catch (error) {
       console.error('Logout failed:', error);
       // อาจเพิ่ม toast หรือ error message

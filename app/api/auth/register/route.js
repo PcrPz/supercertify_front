@@ -18,7 +18,7 @@ export async function POST(request) {
     console.log('Register data:', registerData);
     
     // ส่งข้อมูลไปยัง API
-    const apiUrl = process.env.API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.API_URL;
     console.log('API URL:', apiUrl);
     
     const response = await axios.post(`${apiUrl}/auth/register`, registerData);

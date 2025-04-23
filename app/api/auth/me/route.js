@@ -5,14 +5,14 @@ import axios from 'axios';
 export async function GET(request) {
   try {
     const token = request.cookies.get('access_token')?.value;
-    
+    console.log(token)
     if (!token) {
       return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
     }
     
     // เรียกใช้ API เพื่อตรวจสอบ token และดึงข้อมูลผู้ใช้
     const apiUrl = process.env.API_URL || 'http://localhost:3000';
-    const response = await axios.get(`${apiUrl}/auth/me`, {
+    const response = await axios.get(`http://localhost:3000/auth/me`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
