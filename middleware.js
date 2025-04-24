@@ -11,7 +11,8 @@ export async function middleware(request) {
  const protectedRoutes = [
     '/dashboard',
     '/admin',
-    '/profile'
+    '/profile',
+    '/background-check'
   ];
 
   // ตรวจสอบ Protected Routes
@@ -27,7 +28,7 @@ export async function middleware(request) {
   // ป้องกันผู้ใช้ที่ login แล้วเข้า login/register
   if (authRoutes.includes(request.nextUrl.pathname)) {
     if (token) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
@@ -40,6 +41,7 @@ export const config = {
     '/dashboard/:path*',
     '/admin/:path*',
     '/profile/:path*',
+    '/background-check/:path*',
     '/login', 
     '/register'
   ]

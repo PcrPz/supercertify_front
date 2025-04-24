@@ -28,7 +28,7 @@ const Register = () => {
         };
         
         await register(registerData);
-        router.push('/dashboard');
+        router.push('/');
         router.refresh()
         
       } catch (err) {

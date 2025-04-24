@@ -86,8 +86,8 @@ export default function ServiceSection() {
   return (
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-5xl font-bold text-center mb-4 text-black">บริการของเรา</h2>
-        <p className="text-center text-gray-600 mb-12 font-bold text-[20px]">
+        <h2 className="text-5xl text-center mb-4 text-black">บริการของเรา</h2>
+        <p className="text-center text-gray-600 mb-12 text-[20px]">
         เรามีบริการการตรวจสอบหลายประเภทท่านสามารถเลือกได้ตามความต้องการของตน
         </p>
         
@@ -106,7 +106,7 @@ export default function ServiceSection() {
           <div className="flex justify-center mt-12">
             <button 
               onClick={loadMore}
-              className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-medium py-3 px-12 rounded-full transition duration-300 text-[20px]"
+              className="bg-yellow-400 hover:bg-yellow-500 text-gray-800  py-3 px-12 rounded-full transition duration-300 text-[20px]"
             >
               {buttonText}
             </button>

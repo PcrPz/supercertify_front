@@ -71,11 +71,11 @@ const ThreeSteps = () => {
         
         <div className="mt-12 text-center">
           <Link 
-            href="/get-started" 
-            className="inline-block bg-indigo-600 text-white px-8 py-3 rounded-full font-medium hover:bg-indigo-700 transition duration-300 ease-in-out"
-          >
-            เริ่มต้นใช้งาน
-          </Link>
+             href="/background-check" 
+             className="inline-block mt-8 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-8 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+           >
+             เริ่มต้นการใช้งาน
+           </Link>
         </div>
       </div>
     </section>

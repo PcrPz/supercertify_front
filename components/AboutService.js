@@ -153,8 +153,8 @@ const AboutService = () => {
         </div>
 
         <div className="mt-12 text-center">
-          <a href="/contact-us" className="inline-block bg-indigo-600 text-white px-8 py-3 rounded-full font-medium hover:bg-indigo-700 transition duration-300 ease-in-out">
-            ติดต่อเราเพื่อขอรับบริการ
+          <a href="/faqs" className="inline-block bg-indigo-600 text-white px-8 py-3 rounded-full font-medium hover:bg-indigo-700 transition duration-300 ease-in-out">
+            คำถามที่พบบ่อย
           </a>
         </div>
       </div>
