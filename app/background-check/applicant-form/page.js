@@ -23,16 +23,15 @@ export default function ApplicantForm() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // ฟังก์ชันกลับไปยังหน้าเลือกบริการ
   const handleBackToServices = () => {
-    router.push('/background-check/services');
+    router.push('/background-check/select-services');
   };
 
-  // ฟังก์ชันส่งข้อมูล
+  // ไม่จำเป็นต้องใช้ฟังก์ชันนี้แล้วเนื่องจากเราแสดงสถานะแต่ละบริการแยกกัน
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // ตรวจสอบข้อมูลว่าครบถ้วนหรือไม่
     const isValid = applicants.every(applicant => 
       applicant.name.trim() !== '' && 
       applicant.email.trim() !== '' && 
@@ -44,7 +43,16 @@ export default function ApplicantForm() {
       return;
     }
     
-    // ตรวจสอบว่าทุกบริการถูกกำหนดให้ผู้สมัครครบหรือไม่
+    // ตรวจสอบว่าผู้สมัครทุกคนมีอย่างน้อย 1 บริการ
+    const allApplicantsHaveServices = applicants.every(applicant => 
+      applicant.services.length > 0
+    );
+    
+    if (!allApplicantsHaveServices) {
+      alert('กรุณากำหนดบริการให้ผู้สมัครทุกคนอย่างน้อย 1 บริการ');
+      return;
+    }
+    
     if (!areAllServicesFullyAssigned()) {
       alert('กรุณากำหนดบริการให้ผู้สมัครให้ครบทุกรายการ');
       return;
@@ -53,7 +61,6 @@ export default function ApplicantForm() {
     try {
       setIsSubmitting(true);
       
-      // สร้างข้อมูลสำหรับส่งไป API
       const orderData = {
         mode: checkMode,
         services: cart.map(item => ({
@@ -64,7 +71,6 @@ export default function ApplicantForm() {
         })),
         totalPrice: getTotalPrice(),
         applicants: applicants.map(app => {
-          // หาบริการที่กำหนดให้ผู้สมัครคนนี้
           const applicantServices = app.services.map(serviceId => {
             const service = cart.find(item => item.id === serviceId);
             return {
@@ -83,7 +89,6 @@ export default function ApplicantForm() {
         })
       };
       
-      // ส่งข้อมูลไป API
       const result = await createOrder(orderData);
       
       if (result.success) {
@@ -102,226 +107,232 @@ export default function ApplicantForm() {
   };
 
   return (
-    <div className="container mx-auto px-6 py-12">
-      <h1 className="text-3xl font-medium text-center mb-8">แบบฟอร์มข้อมูลผู้สมัคร</h1>
+    <div className="container max-w-2xl mx-auto p-8">
+      <h1 className="text-3xl font-bold text-center mb-6">แบบฟอร์มข้อมูลผู้สมัคร</h1>
       
-      <div className="flex justify-center mb-6">
-        <div className="bg-white rounded-full p-1.5 flex">
-          <div className={`py-2 px-6 rounded-full text-center bg-indigo-600 text-white`}>
-            ผู้สมัคร
-          </div>
-          <div className={`py-2 px-6 rounded-full text-center text-gray-600`}>
-            ส่วนตัว
-          </div>
+      <div className="max-w-xl mx-auto relative bg-white rounded-full p-1.5 flex mb-8 border-2 border-black shadow-lg">
+        <div 
+          className={`relative z-10 flex-1 py-3 rounded-full text-center transition-colors duration-300 ${
+            checkMode === 'company' 
+              ? 'bg-[#444DDA] text-white' 
+              : 'text-gray-400'
+          }`}
+        >
+          บริษัท
+        </div>
+        <div 
+          className={`relative z-10 flex-1 py-3 rounded-full text-center transition-colors duration-300 ${
+            checkMode === 'personal' 
+              ? 'bg-[#444DDA] text-white' 
+              : 'text-gray-400'
+          }`}
+        >
+          บุคคลธรรมดา
         </div>
       </div>
       
-      <p className="text-center text-gray-600 max-w-3xl mx-auto mb-12">
+      <p className="text-center text-gray-600 text-sm mb-8">
         เราจะส่งแบบฟอร์มยินยอมนี้ถึงผู้สมัครของคุณเพื่อให้พวกเขาสามารถกรอกแบบฟอร์มยินยอมได้อย่างง่ายดาย
         เราขอแนะนำให้คุณให้ข้อมูลสมัครครบถ้วนเพื่อความสะดวกรวดเร็วจาก SuperCertify
       </p>
       
-      <form onSubmit={handleSubmit}>
-        {applicants.map((applicant, index) => (
-          <div key={applicant.id} className="max-w-3xl mx-auto bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="font-medium">
-                {checkMode === 'company' 
-                  ? `ผู้สมัครหมายเลข ${index + 1}` 
-                  : 'ข้อมูลส่วนตัว'}
-              </h3>
-              {/* แสดงปุ่มลบเฉพาะในโหมด company หรือถ้าเป็น personal แต่มีผู้สมัครมากกว่า 1 คน */}
-              {(checkMode === 'company' && applicants.length > 1) && (
-                <button 
-                  type="button"
-                  onClick={() => removeApplicant(applicant.id)}
-                  className="text-red-600"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+      <div className="border-2 border-black rounded-3xl shadow-xl">
+        <form onSubmit={handleSubmit}>
+          {applicants.map((applicant, index) => (
+            <div key={applicant.id}>
+              {index > 0 && (
+                <div className="border-t-2 border-gray-300"></div>
               )}
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div>
-                <label htmlFor={`name-${applicant.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                  ชื่อเต็ม
-                </label>
+              
+              <div className="p-8 relative">
+                {(checkMode === 'company' && applicants.length > 1) && (
+                  <button 
+                    type="button"
+                    onClick={() => removeApplicant(applicant.id)}
+                    className="absolute top-6 right-6 bg-red-100 text-red-600 rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-200 transition-colors shadow-md"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+                
+                <div className="mb-6">
+                  <h3 className="text-base font-semibold text-gray-700 bg-gray-100 inline-block px-3 py-1 rounded-full">
+                    {checkMode === 'company' 
+                      ? `ผู้สมัครหมายเลข ${index + 1}` 
+                      : 'ข้อมูลส่วนตัว'}
+                  </h3>
+                </div>
+                
                 <input
-                  id={`name-${applicant.id}`}
                   type="text"
+                  placeholder="ชื่อเต็ม"
                   value={applicant.name}
                   onChange={(e) => updateApplicant(applicant.id, 'name', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
-              </div>
-              
-              {checkMode === 'company' && (
-                <div>
-                  <label htmlFor={`company-${applicant.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                    ชื่อบริษัท
-                  </label>
+                
+                {checkMode === 'company' && (
                   <input
-                    id={`company-${applicant.id}`}
                     type="text"
+                    placeholder="ชื่อบริษัท"
                     value={applicant.company}
                     onChange={(e) => updateApplicant(applicant.id, 'company', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-5 py-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
-                </div>
-              )}
-              
-              <div>
-                <label htmlFor={`email-${applicant.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                  อีเมล
-                </label>
+                )}
+                
                 <input
-                  id={`email-${applicant.id}`}
                   type="email"
+                  placeholder="อีเมล"
                   value={applicant.email}
                   onChange={(e) => updateApplicant(applicant.id, 'email', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
-              </div>
-              
-              {/* ส่วนการกำหนดบริการ */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  บริการที่ต้องการตรวจสอบ
-                </label>
                 
-                {/* แสดงบริการที่เลือกไว้แล้ว */}
-                {applicant.services.length > 0 ? (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium mb-2">บริการที่เลือกแล้ว:</h4>
-                    <div className="space-y-2">
-                      {applicant.services.map(serviceId => {
-                        const service = cart.find(item => item.id === serviceId);
-                        return service ? (
-                          <div key={serviceId} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                            <span>{service.title}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeServiceFromApplicant(applicant.id, serviceId)}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+                {/* Services section */}
+                <div className="mt-6">
+                  {applicant.services.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium mb-3">บริการที่เลือกแล้ว:</h4>
+                      <div className="space-y-3">
+                        {applicant.services.map(serviceId => {
+                          const service = cart.find(item => item.id === serviceId);
+                          if (!service) return null;
+                          
+                          // หาจำนวนครั้งที่บริการนี้ถูกใช้โดยทุกผู้สมัคร
+                          const allAssignedCount = applicants.reduce((count, app) => {
+                            return count + app.services.filter(id => id === service.id).length;
+                          }, 0);
+                          
+                          return (
+                            <div key={serviceId} className="flex items-center justify-between bg-blue-50 p-4 rounded-xl border border-blue-200">
+                              <span className="font-medium">{service.title}</span>
+                              <div className="flex items-center">
+                                <span className="text-sm px-3 py-1 rounded-full font-medium bg-blue-50 text-blue-600">
+                                  {allAssignedCount}/{service.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeServiceFromApplicant(applicant.id, serviceId)}
+                                  className="ml-3 bg-red-100 hover:bg-red-200 text-red-600 w-8 h-8 rounded-full flex items-center justify-center transition-colors shadow-sm"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">
+                      เพิ่มบริการ
+                    </h4>
+                    <div className="space-y-3">
+                      {getAvailableServicesForApplicant(applicant.id).map(service => {
+                        // หาจำนวนครั้งที่บริการนี้ถูกใช้โดยทุกผู้สมัคร
+                        const allAssignedCount = applicants.reduce((count, app) => {
+                          return count + app.services.filter(id => id === service.id).length;
+                        }, 0);
+                        
+                        return (
+                          <div 
+                            key={service.id}
+                            onClick={() => addServiceToApplicant(applicant.id, service.id)}
+                            className="flex justify-between items-center p-4 rounded-xl cursor-pointer transition-all bg-gray-50 border border-gray-200 hover:bg-gray-100"
+                          >
+                            <h5 className="font-medium">{service.title}</h5>
+                            <span className={`text-sm px-3 py-1 rounded-full font-medium ${
+                              allAssignedCount === service.quantity - 1 
+                                ? 'bg-blue-50 text-blue-600' 
+                                : 'bg-blue-50 text-blue-600'
+                            }`}>
+                              {allAssignedCount}/{service.quantity}
+                            </span>
                           </div>
-                        ) : null;
+                        );
                       })}
                     </div>
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500 mb-4">ยังไม่ได้เลือกบริการ</p>
-                )}
-                
-                {/* เลือกบริการเพิ่ม */}
-                <div>
-                  <h4 className="text-sm font-medium mb-2">เพิ่มบริการ:</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {getAvailableServicesForApplicant(applicant.id).map(service => (
-                      <div 
-                        key={service.id}
-                        className="bg-white border border-gray-200 rounded p-3 cursor-pointer hover:bg-gray-50"
-                        onClick={() => addServiceToApplicant(applicant.id, service.id)}
-                      >
-                        <h5 className="font-medium text-sm">{service.title}</h5>
-                        <p className="text-xs text-gray-500">
-                          {service.price.toLocaleString()} บาท
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {getAvailableServicesForApplicant(applicant.id).length === 0 && (
-                    <p className="text-sm text-gray-500">
-                      ไม่มีบริการที่สามารถเพิ่มเติมได้
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </form>
         
-        {/* ปุ่มเพิ่มผู้สมัคร - แสดงเฉพาะในโหมด company */}
         {checkMode === 'company' && (
-          <div className="max-w-3xl mx-auto mb-12">
+          <div className="p-8 border-t-2 border-gray-300">
             <button 
               type="button"
               onClick={addApplicant}
-              className="w-full bg-yellow-400 text-gray-900 py-3 rounded-md font-medium flex items-center justify-center hover:bg-yellow-500 transition-colors"
+              className="w-full bg-yellow-500 text-white py-4 rounded-2xl font-medium hover:bg-yellow-600 transition-colors shadow-md"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              เพิ่มผู้สมัคร
+              + เพิ่มผู้สมัคร
             </button>
           </div>
         )}
         
-        {/* แสดงคำแนะนำสำหรับโหมด personal */}
         {checkMode === 'personal' && (
-          <div className="max-w-3xl mx-auto mb-12 text-center text-gray-500 italic">
+          <div className="p-8 text-center text-gray-500 italic">
             โหมดส่วนตัวสามารถกรอกข้อมูลได้เพียง 1 คนเท่านั้น
           </div>
         )}
+      </div>
+      
+      <div className="bg-white rounded-3xl border-2 border-black shadow-xl mt-8">
+        <div className="px-8 py-6 border-b-2 border-gray-300">
+          <h3 className="font-medium">สรุปรายการ</h3>
+        </div>
         
-        {/* สรุปรายการและราคา */}
-        <div className="max-w-3xl mx-auto bg-white rounded-lg border border-gray-200 overflow-hidden mb-12">
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h3 className="font-medium">สรุปรายการ</h3>
-          </div>
-          
-          <div>
-            {cart.map((item, index) => (
-              <div key={index} className="px-6 py-4 border-b border-gray-200 last:border-b-0 flex justify-between">
-                <div>
-                  <h4 className="font-medium">{item.title}</h4>
-                  <div className="text-gray-600 text-sm">{item.price.toLocaleString()} บาท x {item.quantity} คน</div>
-                </div>
-                
-                <div className="font-medium">
-                  {(item.price * item.quantity).toLocaleString()} บาท
-                </div>
+        <div>
+          {cart.map((item, index) => (
+            <div key={index} className="px-8 py-6 border-b border-gray-300 last:border-b-0 flex justify-between items-center">
+              <div>
+                <h4 className="font-medium">{item.title}</h4>
+                <div className="text-gray-600 text-sm">{item.price.toLocaleString()} บาท x {item.quantity} คน</div>
               </div>
-            ))}
-            
-            <div className="px-6 py-4 bg-gray-50 flex justify-between items-center">
-              <div className="font-medium">ราคารวมทั้งหมด:</div>
-              <div className="font-bold text-lg">{getTotalPrice().toLocaleString()} บาท</div>
+              
+              <div className="font-medium">
+                {(item.price * item.quantity).toLocaleString()} บาท
+              </div>
             </div>
+          ))}
+          
+          <div className="px-8 py-6 flex justify-between items-center">
+            <div className="font-medium">ราคารวมทั้งหมด:</div>
+            <div className="font-bold text-lg">{getTotalPrice().toLocaleString()} บาท</div>
           </div>
         </div>
+      </div>
+      
+      <div className="flex justify-between mt-8">
+        <button 
+          type="button"
+          onClick={handleBackToServices}
+          className="border-2 border-blue-600 text-blue-600 px-10 py-4 rounded-2xl font-medium hover:bg-blue-50 transition-colors"
+          disabled={isSubmitting}
+        >
+          กลับไปเลือกบริการ
+        </button>
         
-        {/* ปุ่มดำเนินการต่อและกลับ */}
-        <div className="max-w-3xl mx-auto flex justify-between">
-          <button 
-            type="button"
-            onClick={handleBackToServices}
-            className="border border-indigo-600 text-indigo-600 px-8 py-3 rounded-md font-medium hover:bg-indigo-50 transition-colors"
-            disabled={isSubmitting}
-          >
-            กลับไปเลือกบริการ
-          </button>
-          
-          <button 
-            type="submit"
-            className="bg-indigo-600 text-white px-8 py-3 rounded-md font-medium hover:bg-indigo-700 transition-colors"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'กำลังส่งข้อมูล...' : 'ส่ง'}
-          </button>
-        </div>
-      </form>
+        <button 
+          type="submit"
+          onClick={handleSubmit}
+          className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-medium hover:bg-blue-700 transition-colors"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? 'กำลังส่งข้อมูล...' : 'ส่ง'}
+        </button>
+      </div>
     </div>
   );
 }

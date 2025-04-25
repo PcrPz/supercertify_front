@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useCheck } from '@/context/CheckContext';
 import { getPackages } from '@/services/apiService';
@@ -15,7 +13,22 @@ export default function PackagesList() {
       try {
         setLoading(true);
         const data = await getPackages();
-        setPackages(data);
+        console.log("Loaded packages:", data);
+        
+        // แปลงข้อมูลให้ตรงกับโครงสร้างที่ frontend ต้องการ
+        const formattedData = data.map(pkg => ({
+          id: pkg._id,
+          title: pkg.Package_Title,
+          description: pkg.Package_Desc,
+          price: pkg.Price,
+          category: 'packages',
+          services: pkg.services.map(service => ({
+            id: service._id || service,
+            title: service.Service_Title || ''
+          }))
+        }));
+        
+        setPackages(formattedData);
       } catch (err) {
         setError('ไม่สามารถโหลดข้อมูลแพ็คเกจได้');
         console.error(err);

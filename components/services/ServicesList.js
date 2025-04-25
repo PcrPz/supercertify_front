@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useCheck } from '@/context/CheckContext';
@@ -20,8 +18,18 @@ export default function ServicesList() {
        const data = await getServices();
        console.log("Loaded services:", data);
        
+       // แปลงข้อมูลให้ตรงกับโครงสร้างที่ frontend ต้องการ
+       const formattedData = data.map(service => ({
+         id: service._id,
+         title: service.Service_Title,
+         description: service.Service_Desc,
+         price: service.Price,
+         image: service.Service_Image,
+         category: 'general' // ตั้งค่าเริ่มต้น
+       }));
+       
        if (isMounted) {
-         setServices(data);
+         setServices(formattedData);
        }
      } catch (err) {
        if (isMounted) {
