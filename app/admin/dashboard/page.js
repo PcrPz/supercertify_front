@@ -6,6 +6,7 @@ import axios from 'axios';
 export default async function AdminDashboardPage() {
  const cookieStore = await cookies();
  const token = cookieStore.get('access_token')?.value;
+ console.log(token)
 
  // ถ้าไม่มี token
  if (!token) {

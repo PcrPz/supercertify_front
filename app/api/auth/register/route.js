@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // ตั้งค่า cookie options
 const COOKIE_OPTIONS = {
-  httpOnly: true,
+  httpOnly: false,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict',
   path: '/',

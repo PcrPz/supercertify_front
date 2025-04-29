@@ -2,9 +2,10 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 
+
 // ตั้งค่า cookie options
 const COOKIE_OPTIONS = {
-  httpOnly: true,
+  httpOnly: false,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict',
   path: '/',
@@ -13,7 +14,6 @@ const COOKIE_OPTIONS = {
 
 export async function POST(request) {
   try {
-
     // ดึงข้อมูลจาก request
     const loginData = await request.json();
     console.log('Login data:', loginData);

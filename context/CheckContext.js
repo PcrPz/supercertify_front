@@ -94,25 +94,127 @@ export function CheckProvider({ children }) {
     }
   };
   
-  // คำนวณราคารวมของบริการในตะกร้า
-  const getTotalPrice = () => {
+  // ฟังก์ชันตรวจสอบว่าเป็น package หรือไม่
+  const isPackage = (item) => {
+    return (
+      (item.type === 'package') || 
+      (item.isPackage === true) || 
+      (item.title && item.title.toLowerCase().includes('package')) ||
+      (item.subServices && Array.isArray(item.subServices) && item.subServices.length > 0) ||
+      (item.packageItems && Array.isArray(item.packageItems) && item.packageItems.length > 0)
+    );
+  };
+
+  // ฟังก์ชันนับจำนวนบริการภายใน package
+  const countPackageServices = (item) => {
+    // ถ้ามี subServices ใช้จำนวนจาก subServices
+    if (item.subServices && Array.isArray(item.subServices)) {
+      return item.subServices.length;
+    } 
+    // ถ้ามี packageItems ใช้จำนวนจาก packageItems
+    else if (item.packageItems && Array.isArray(item.packageItems)) {
+      return item.packageItems.length;
+    } 
+    // ถ้าไม่มีข้อมูลชัดเจน ใช้ค่าประมาณจากชื่อหรือค่าเริ่มต้น
+    else {
+      let packageServiceCount = 2; // ค่าเริ่มต้น
+      
+      if (item.title) {
+        // ลองดึงตัวเลขจากชื่อ เช่น "Starter Package (3 services)"
+        const matches = item.title.match(/\((\d+)\s*services?\)/i);
+        if (matches && matches[1]) {
+          packageServiceCount = parseInt(matches[1], 10);
+        } 
+        // หรือลองเดาจากชื่อ
+        else if (item.title.toLowerCase().includes('starter')) {
+          packageServiceCount = 2;
+        } else if (item.title.toLowerCase().includes('premium')) {
+          packageServiceCount = 3;
+        } else if (item.title.toLowerCase().includes('complete')) {
+          packageServiceCount = 4;
+        }
+      }
+      
+      return packageServiceCount;
+    }
+  };
+  
+  // ฟังก์ชันนับจำนวนบริการทั้งหมด (รวมบริการย่อยในแพ็คเกจ)
+  const getTotalServiceCount = () => {
+    let totalCount = 0;
+    
+    for (const item of cart) {
+      console.log("Checking item:", item); // แสดงข้อมูลสินค้าเพื่อดีบัก
+      
+      if (isPackage(item)) {
+        // ถ้าเป็นแพ็คเกจ นับจำนวนบริการย่อย
+        const packageCount = countPackageServices(item);
+        console.log(`Package ${item.title || 'unknown'}: ${packageCount} services`);
+        totalCount += packageCount * item.quantity; // คูณด้วยจำนวนแพ็คเกจ
+      } else {
+        // ถ้าเป็นบริการเดี่ยว นับตามจำนวนที่สั่งซื้อ
+        console.log(`Single service ${item.title || 'unknown'}: ${item.quantity} items`);
+        totalCount += item.quantity;
+      }
+    }
+    
+    console.log("Total service count:", totalCount);
+    return totalCount;
+  };
+  
+  // ฟังก์ชันคำนวณอัตราส่วนลด
+  const getDiscountRate = () => {
+    const serviceCount = getTotalServiceCount();
+    
+    console.log("Service count for discount calculation:", serviceCount);
+    
+    if (serviceCount >= 5) {
+      return 0.10; // ลด 15%
+    } else if (serviceCount >= 3) {
+      return 0.05; // ลด 10%
+    }
+    return 0;
+  };
+  
+  // คำนวณราคารวมของบริการในตะกร้า (ก่อนหักส่วนลด)
+  const getSubtotalPrice = () => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
   
+  // คำนวณจำนวนเงินส่วนลด
+  const getDiscountAmount = () => {
+    const subtotal = getSubtotalPrice();
+    const discountRate = getDiscountRate();
+    const amount = Math.round(subtotal * discountRate);
+    
+    console.log("Subtotal:", subtotal);
+    console.log("Discount rate:", discountRate);
+    console.log("Discount amount:", amount);
+    
+    return amount;
+  };
+  
+  // คำนวณราคารวมหลังหักส่วนลด
+  const getTotalPrice = () => {
+    const subtotal = getSubtotalPrice();
+    const discount = getDiscountAmount();
+    return subtotal - discount;
+  };
+  
   // เพิ่มผู้สมัคร
-const addApplicant = () => {
-  // ถ้าเป็นโหมด personal และมีผู้สมัครอยู่แล้ว 1 คน ไม่อนุญาตให้เพิ่ม
-  if (checkMode === 'personal' && applicants.length >= 1) {
-    alert('โหมดส่วนตัวสามารถเพิ่มผู้สมัครได้เพียง 1 คนเท่านั้น');
-    return;
-  }
-  
-  const newId = applicants.length > 0 
-    ? Math.max(...applicants.map(a => a.id)) + 1 
-    : 1;
-  
-  setApplicants([...applicants, { id: newId, name: '', company: '', email: '', services: [] }]);
-};
+  const addApplicant = () => {
+    // ถ้าเป็นโหมด personal และมีผู้สมัครอยู่แล้ว 1 คน ไม่อนุญาตให้เพิ่ม
+    if (checkMode === 'personal' && applicants.length >= 1) {
+      alert('โหมดส่วนตัวสามารถเพิ่มผู้สมัครได้เพียง 1 คนเท่านั้น');
+      return;
+    }
+    
+    const newId = applicants.length > 0 
+      ? Math.max(...applicants.map(a => a.id)) + 1 
+      : 1;
+    
+    setApplicants([...applicants, { id: newId, name: '', company: '', email: '', services: [] }]);
+  };
   
   // อัปเดตข้อมูลผู้สมัคร
   const updateApplicant = (id, field, value) => {
@@ -153,23 +255,39 @@ const addApplicant = () => {
     if (!serviceToAdd) return false;
     
     // ถ้าเป็นแพ็คเกจ ตรวจสอบว่ามีบริการย่อยที่ซ้ำกับที่ผู้สมัครมีอยู่แล้วหรือไม่
-    if (serviceToAdd.category === 'packages' && serviceToAdd.services) {
-      const packageServiceIds = serviceToAdd.services.map(s => s.id);
+    if (isPackage(serviceToAdd)) {
+      // ดึงข้อมูล subServices หรือ packageItems ถ้ามี
+      const packageServiceIds = [];
       
-      for (const existingServiceId of applicant.services) {
-        const existingService = cart.find(item => item.id === existingServiceId);
-        if (!existingService) continue;
-        
-        // ถ้าเป็นแพ็คเกจ ตรวจสอบว่ามีบริการย่อยที่ซ้ำกันหรือไม่
-        if (existingService.category === 'packages' && existingService.services) {
-          const existingPackageServiceIds = existingService.services.map(s => s.id);
+      if (serviceToAdd.subServices && Array.isArray(serviceToAdd.subServices)) {
+        packageServiceIds.push(...serviceToAdd.subServices.map(s => s.id));
+      } else if (serviceToAdd.packageItems && Array.isArray(serviceToAdd.packageItems)) {
+        packageServiceIds.push(...serviceToAdd.packageItems.map(s => s.id));
+      }
+      
+      // ถ้ามีข้อมูลบริการย่อย ตรวจสอบความซ้ำซ้อน
+      if (packageServiceIds.length > 0) {
+        for (const existingServiceId of applicant.services) {
+          const existingService = cart.find(item => item.id === existingServiceId);
+          if (!existingService) continue;
           
-          // ตรวจสอบว่ามีบริการที่ซ้ำกันหรือไม่
-          const hasConflict = packageServiceIds.some(id => existingPackageServiceIds.includes(id));
-          if (hasConflict) return true;
-        } else {
-          // ถ้าเป็นบริการเดี่ยว ตรวจสอบว่าซ้ำกับบริการย่อยในแพ็คเกจหรือไม่
-          if (packageServiceIds.includes(existingServiceId)) return true;
+          // ถ้าบริการเดิมเป็นแพ็คเกจ
+          if (isPackage(existingService)) {
+            const existingPackageServiceIds = [];
+            
+            if (existingService.subServices && Array.isArray(existingService.subServices)) {
+              existingPackageServiceIds.push(...existingService.subServices.map(s => s.id));
+            } else if (existingService.packageItems && Array.isArray(existingService.packageItems)) {
+              existingPackageServiceIds.push(...existingService.packageItems.map(s => s.id));
+            }
+            
+            // ตรวจสอบว่ามีบริการย่อยที่ซ้ำกันหรือไม่
+            const hasConflict = packageServiceIds.some(id => existingPackageServiceIds.includes(id));
+            if (hasConflict) return true;
+          } else {
+            // ถ้าบริการเดิมเป็นบริการเดี่ยว ตรวจสอบว่าซ้ำกับบริการย่อยในแพ็คเกจหรือไม่
+            if (packageServiceIds.includes(existingServiceId)) return true;
+          }
         }
       }
     } else {
@@ -178,8 +296,15 @@ const addApplicant = () => {
         const existingService = cart.find(item => item.id === existingServiceId);
         if (!existingService) continue;
         
-        if (existingService.category === 'packages' && existingService.services) {
-          const existingPackageServiceIds = existingService.services.map(s => s.id);
+        if (isPackage(existingService)) {
+          const existingPackageServiceIds = [];
+          
+          if (existingService.subServices && Array.isArray(existingService.subServices)) {
+            existingPackageServiceIds.push(...existingService.subServices.map(s => s.id));
+          } else if (existingService.packageItems && Array.isArray(existingService.packageItems)) {
+            existingPackageServiceIds.push(...existingService.packageItems.map(s => s.id));
+          }
+          
           if (existingPackageServiceIds.includes(serviceId)) return true;
         }
       }
@@ -273,7 +398,13 @@ const addApplicant = () => {
     addService,
     removeService,
     updateQuantity,
+    getSubtotalPrice,
+    getDiscountRate,
+    getDiscountAmount,
     getTotalPrice,
+    getTotalServiceCount,
+    isPackage,
+    countPackageServices,
     applicants,
     addApplicant,
     updateApplicant,

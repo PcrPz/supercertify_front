@@ -21,6 +21,11 @@ export default function ServicesPage() {
     }
   };
 
+  // ฟังก์ชันกลับไปหน้าเดิม
+  const handleBack = () => {
+    router.push('/background-check');
+  };
+
   return (
     <div className="container mx-auto px-6 py-12">
       <h1 className="text-3xl font-medium text-center mb-8">บริการที่ต้องการตรวจสอบ</h1>
@@ -55,8 +60,14 @@ export default function ServicesPage() {
       {/* ตะกร้าบริการที่เลือก */}
       <CartList />
       
-      {/* ปุ่มดำเนินการต่อ */}
-      <div className="text-center">
+      {/* ปุ่มดำเนินการต่อและย้อนกลับ */}
+      <div className="flex justify-center items-center space-x-4 mt-6">
+        <button 
+          onClick={handleBack}
+          className="bg-gray-200 text-gray-900 px-8 py-3 rounded-md font-medium hover:bg-gray-300 transition-colors"
+        >
+          ย้อนกลับ
+        </button>
         <button 
           onClick={handleContinue}
           className="bg-yellow-400 text-gray-900 px-8 py-3 rounded-md font-medium hover:bg-yellow-500 transition-colors"

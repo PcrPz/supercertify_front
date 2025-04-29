@@ -30,7 +30,7 @@ export async function POST(request) {
     
     // ลบ cookie โดยตั้งค่าหมดอายุเป็น 0
     res.cookies.set('access_token', '', { 
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
@@ -49,7 +49,7 @@ export async function POST(request) {
     
     // ลบ cookie แม้จะเกิดข้อผิดพลาด
     res.cookies.set('access_token', '', { 
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',

@@ -1,6 +1,5 @@
-'use client';
-
-import { useState } from 'react';
+"use client"
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCheck } from '@/context/CheckContext';
 import { createOrder } from '@/services/apiService';
@@ -10,7 +9,13 @@ export default function ApplicantForm() {
   const { 
     checkMode, 
     cart, 
-    getTotalPrice, 
+    getSubtotalPrice,
+    getDiscountRate,
+    getDiscountAmount,
+    getTotalPrice,
+    getTotalServiceCount,
+    isPackage,
+    countPackageServices,
     applicants, 
     addApplicant, 
     updateApplicant, 
@@ -22,16 +27,97 @@ export default function ApplicantForm() {
   } = useCheck();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [discountInfo, setDiscountInfo] = useState({
+    hasDiscount: false,
+    rate: 0,
+    amount: 0,
+    totalPrice: 0,
+    serviceCount: 0
+  });
+  
+  // เพิ่ม state สำหรับเก็บข้อผิดพลาดของอีเมล
+  const [emailErrors, setEmailErrors] = useState({});
+  
+  // อัพเดทข้อมูลส่วนลดเมื่อ cart เปลี่ยนแปลง
+  useEffect(() => {
+    const serviceCount = getTotalServiceCount();
+    const discountRate = getDiscountRate();
+    const discountAmount = getDiscountAmount();
+    const totalPrice = getTotalPrice();
+    
+    setDiscountInfo({
+      hasDiscount: discountRate > 0,
+      rate: discountRate,
+      amount: discountAmount,
+      totalPrice: totalPrice,
+      serviceCount: serviceCount
+    });
+  }, [cart, getTotalServiceCount, getDiscountRate, getDiscountAmount, getTotalPrice]);
+  
+  // ฟังก์ชันตรวจสอบรูปแบบอีเมล
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+  
+  // ฟังก์ชันสำหรับการอัพเดทอีเมล
+  const handleEmailChange = (applicantId, email) => {
+    updateApplicant(applicantId, 'email', email);
+    
+    // ถ้าอีเมลว่างหรือถูกต้อง ลบข้อความเตือน
+    if (email.trim() === '' || validateEmail(email)) {
+      setEmailErrors(prev => {
+        const newErrors = {...prev};
+        delete newErrors[applicantId];
+        return newErrors;
+      });
+    } else {
+      // ถ้าอีเมลไม่ถูกต้อง เพิ่มข้อความเตือน
+      setEmailErrors(prev => ({
+        ...prev,
+        [applicantId]: 'รูปแบบอีเมลไม่ถูกต้อง'
+      }));
+    }
+  };
+  
+  // ฟังก์ชันตรวจสอบเมื่อกดออกจากช่องอีเมล (blur event)
+  const handleEmailBlur = (applicantId, email) => {
+    if (email.trim() !== '' && !validateEmail(email)) {
+      setEmailErrors(prev => ({
+        ...prev,
+        [applicantId]: 'รูปแบบอีเมลไม่ถูกต้อง'
+      }));
+    }
+  };
   
   const handleBackToServices = () => {
     router.push('/background-check/select-services');
   };
 
-  // ไม่จำเป็นต้องใช้ฟังก์ชันนี้แล้วเนื่องจากเราแสดงสถานะแต่ละบริการแยกกัน
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // ตรวจสอบความถูกต้องของอีเมลทุกคน
+    let hasEmailError = false;
+    const newEmailErrors = {};
+    
+    applicants.forEach(applicant => {
+      if (applicant.email.trim() !== '' && !validateEmail(applicant.email)) {
+        newEmailErrors[applicant.id] = 'รูปแบบอีเมลไม่ถูกต้อง';
+        hasEmailError = true;
+      }
+    });
+    
+    // อัพเดท state เก็บข้อความเตือน
+    setEmailErrors(newEmailErrors);
+    
+    // ถ้ามีความผิดพลาดของอีเมล ยกเลิกการส่งฟอร์ม
+    if (hasEmailError) {
+      alert('กรุณาตรวจสอบรูปแบบอีเมลให้ถูกต้อง');
+      return;
+    }
+    
+    // ตรวจสอบว่ากรอกข้อมูลครบทุกช่องที่จำเป็น
     const isValid = applicants.every(applicant => 
       applicant.name.trim() !== '' && 
       applicant.email.trim() !== '' && 
@@ -59,41 +145,86 @@ export default function ApplicantForm() {
     }
     
     try {
-      setIsSubmitting(true);
-      
-      const orderData = {
-        mode: checkMode,
-        services: cart.map(item => ({
-          id: item.id,
+        setIsSubmitting(true);
+        
+        // สร้างรายการบริการตามรูปแบบที่กำหนด
+        const services = cart.map(item => ({
+          service: item.id,
           title: item.title,
           quantity: item.quantity,
-          price: item.price
-        })),
-        totalPrice: getTotalPrice(),
-        applicants: applicants.map(app => {
-          const applicantServices = app.services.map(serviceId => {
-            const service = cart.find(item => item.id === serviceId);
-            return {
-              id: serviceId,
-              title: service?.title || '',
-              price: service?.price || 0
-            };
-          });
+          price: item.price,
+        }));
+      
+      // Object เก็บ mapping ระหว่าง package ID และ service IDs ย่อย
+      const packageToServicesMap = {};
+      
+      // วนลูปเพื่อสร้าง mapping
+      cart.forEach(item => {
+        if (isPackage(item)) {
+          // ถ้าเป็น Package ให้แตกออกเป็น Service ย่อยๆ
+          let subServices = [];
           
-          return {
-            name: app.name,
-            email: app.email,
-            company: app.company || null,
-            services: applicantServices
-          };
-        })
+          // ตรวจสอบและดึงบริการย่อยจากโครงสร้างข้อมูลที่เป็นไปได้
+          if (item.subServices && Array.isArray(item.subServices)) {
+            subServices = item.subServices.map(s => s.id || `${item.id}_sub_${subServices.length}`);
+          } else if (item.packageItems && Array.isArray(item.packageItems)) {
+            subServices = item.packageItems.map(s => s.id || `${item.id}_sub_${subServices.length}`);
+          } else if (item.services && Array.isArray(item.services)) {
+            subServices = item.services.map(s => s.id || `${item.id}_sub_${subServices.length}`);
+          } else {
+            // ถ้าไม่มีข้อมูลบริการย่อยที่ชัดเจน ให้สร้างข้อมูลจำลองขึ้นมา
+            const serviceCount = countPackageServices(item);
+            subServices = Array.from({ length: serviceCount }, (_, i) => `${item.id}_sub_${i + 1}`);
+          }
+          
+          // เก็บ mapping
+          packageToServicesMap[item.id] = subServices;
+        } else {
+          // ถ้าเป็นบริการเดี่ยว เก็บเป็น array ที่มีแค่ตัวเอง
+          packageToServicesMap[item.id] = [item.id];
+        }
+      });
+      
+      // สร้างรายการผู้สมัครตามรูปแบบที่กำหนด พร้อมแตก Package
+      const candidates = applicants.map(app => {
+        // แตก Package เป็น Service ย่อยๆ
+        const flattenedServices = [];
+        
+        app.services.forEach(serviceId => {
+          // ตรวจสอบว่ามี mapping หรือไม่
+          const serviceIds = packageToServicesMap[serviceId];
+          if (serviceIds) {
+            // เพิ่ม service IDs ที่แตกออกมาแล้ว
+            flattenedServices.push(...serviceIds);
+          } else {
+            // ถ้าไม่มี mapping ใช้ ID เดิม
+            flattenedServices.push(serviceId);
+          }
+        });
+        
+        return {
+          C_FullName: app.name,
+          C_Email: app.email,
+          C_Company_Name: app.company || "",
+          services: flattenedServices  // Service IDs ที่แตกออกมาแล้ว
+        };
+      });
+      
+      // สร้างข้อมูล Order ตามรูปแบบที่กำหนด
+      const orderData = {
+        OrderType: checkMode,
+        services: services,
+        subtotalPrice: getSubtotalPrice(), // ราคาก่อนหักส่วนลด
+        totalPrice: getTotalPrice(),       // ราคาสุทธิหลังหักส่วนลด
+        candidates: candidates             // รายการผู้สมัครพร้อมบริการที่แตกออกแล้ว
       };
+      
+      console.log("Sending order with flattened package services:", orderData);
       
       const result = await createOrder(orderData);
       
       if (result.success) {
-        alert('ส่งข้อมูลเรียบร้อยแล้ว! ขอบคุณสำหรับการใช้บริการ');
-        // router.push(`/background-check/thank-you?orderId=${result.orderId}`);
+        router.push(`/background-check/order-confirmation/${result.orderId}`);
       } else {
         throw new Error(result.message || 'การสั่งซื้อล้มเหลว');
       }
@@ -105,7 +236,8 @@ export default function ApplicantForm() {
       setIsSubmitting(false);
     }
   };
-
+  
+  
   return (
     <div className="container max-w-2xl mx-auto p-8">
       <h1 className="text-3xl font-bold text-center mb-6">แบบฟอร์มข้อมูลผู้สมัคร</h1>
@@ -185,14 +317,20 @@ export default function ApplicantForm() {
                   />
                 )}
                 
-                <input
-                  type="email"
-                  placeholder="อีเมล"
-                  value={applicant.email}
-                  onChange={(e) => updateApplicant(applicant.id, 'email', e.target.value)}
-                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+                <div className="mb-4">
+                  <input
+                    type="email"
+                    placeholder="อีเมล"
+                    value={applicant.email}
+                    onChange={(e) => handleEmailChange(applicant.id, e.target.value)}
+                    onBlur={(e) => handleEmailBlur(applicant.id, e.target.value)}
+                    className={`w-full px-5 py-4 border ${emailErrors[applicant.id] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-2xl focus:outline-none focus:ring-2 ${emailErrors[applicant.id] ? 'focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                    required
+                  />
+                  {emailErrors[applicant.id] && (
+                    <p className="text-red-500 text-sm mt-1 ml-2">{emailErrors[applicant.id]}</p>
+                  )}
+                </div>
                 
                 {/* Services section */}
                 <div className="mt-6">
@@ -211,7 +349,14 @@ export default function ApplicantForm() {
                           
                           return (
                             <div key={serviceId} className="flex items-center justify-between bg-blue-50 p-4 rounded-xl border border-blue-200">
-                              <span className="font-medium">{service.title}</span>
+                              <div>
+                                <span className="font-medium">{service.title}</span>
+                                {isPackage(service) && (
+                                  <span className="ml-2 text-sm text-blue-600 font-medium">
+                                    ({countPackageServices(service)} บริการ)
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center">
                                 <span className="text-sm px-3 py-1 rounded-full font-medium bg-blue-50 text-blue-600">
                                   {allAssignedCount}/{service.quantity}
@@ -250,12 +395,15 @@ export default function ApplicantForm() {
                             onClick={() => addServiceToApplicant(applicant.id, service.id)}
                             className="flex justify-between items-center p-4 rounded-xl cursor-pointer transition-all bg-gray-50 border border-gray-200 hover:bg-gray-100"
                           >
-                            <h5 className="font-medium">{service.title}</h5>
-                            <span className={`text-sm px-3 py-1 rounded-full font-medium ${
-                              allAssignedCount === service.quantity - 1 
-                                ? 'bg-blue-50 text-blue-600' 
-                                : 'bg-blue-50 text-blue-600'
-                            }`}>
+                            <div>
+                              <h5 className="font-medium">{service.title}</h5>
+                              {isPackage(service) && (
+                                <span className="text-xs text-blue-600 font-medium">
+                                  แพ็คเกจ {countPackageServices(service)} บริการ
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-sm px-3 py-1 rounded-full font-medium bg-blue-50 text-blue-600">
                               {allAssignedCount}/{service.quantity}
                             </span>
                           </div>
@@ -298,7 +446,14 @@ export default function ApplicantForm() {
             <div key={index} className="px-8 py-6 border-b border-gray-300 last:border-b-0 flex justify-between items-center">
               <div>
                 <h4 className="font-medium">{item.title}</h4>
-                <div className="text-gray-600 text-sm">{item.price.toLocaleString()} บาท x {item.quantity} คน</div>
+                <div className="text-gray-600 text-sm">
+                  {item.price.toLocaleString()} บาท x {item.quantity} คน
+                  {isPackage(item) && (
+                    <span className="ml-2 text-blue-600 font-medium">
+                      (แพ็คเกจ {countPackageServices(item)} บริการ)
+                    </span>
+                  )}
+                </div>
               </div>
               
               <div className="font-medium">
@@ -307,10 +462,39 @@ export default function ApplicantForm() {
             </div>
           ))}
           
-          <div className="px-8 py-6 flex justify-between items-center">
-            <div className="font-medium">ราคารวมทั้งหมด:</div>
-            <div className="font-bold text-lg">{getTotalPrice().toLocaleString()} บาท</div>
+          {/* แสดงจำนวนบริการทั้งหมด */}
+          <div className="px-8 py-4 bg-gray-50 border-t border-gray-200">
+            <div className="flex justify-between items-center text-sm text-gray-600">
+              <div>จำนวนบริการทั้งหมด (รวมบริการย่อยในแพ็คเกจ):</div>
+              <div className="font-medium">{discountInfo.serviceCount} บริการ</div>
+            </div>
           </div>
+          <div className="px-8 py-6 flex justify-between items-center border-b border-gray-200">
+            <div className="font-medium">ราคารวม:</div>
+            <div className="font-bold text-lg">{getSubtotalPrice().toLocaleString()} บาท</div>
+          </div>
+          
+          {/* ส่วนแสดงโปรโมชั่นและราคาสุทธิ */}
+          {discountInfo.hasDiscount && (
+            <div>
+              <div className="px-8 py-4 bg-green-50 border-t border-green-100">
+                <div className="flex justify-between items-center">
+                  <div className="font-medium text-green-700">
+                    ส่วนลด {discountInfo.rate === 0.10 ? '10%' : '5%'}: ({discountInfo.serviceCount} บริการ {discountInfo.rate === 0.10 ? '≥ 5 บริการ' : '≥ 3 บริการ'})
+                  </div>
+                  <div className="font-bold text-green-700">
+                    -{discountInfo.amount.toLocaleString()} บาท
+                  </div>
+                </div>
+              </div>
+              <div className="px-8 py-4 flex justify-between items-center border-t border-gray-200">
+                <div className="font-medium text-lg">ราคาสุทธิ:</div>
+                <div className="font-bold text-lg text-green-700">
+                  {discountInfo.totalPrice.toLocaleString()} บาท
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       

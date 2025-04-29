@@ -43,6 +43,17 @@ export default function PackagesList() {
   // แก้ไขการกรองข้อมูล
   const filteredPackages = packages.filter(pkg => pkg && (typeof pkg === 'object'));
 
+  // Year Package ที่มี QR Code LINE
+  const yearPackage = {
+    id: 'year-package',
+    title: 'Year Package',
+    description: 'แพ็คเกจพิเศษรายปี สำหรับองค์กรที่ต้องการการตรวจสอบประวัติพนักงานในราคาพิเศษ',
+    category: 'packages',
+    isYearPackage: true,
+    lineUrl: 'https://lin.ee/ksnDDxo',
+    services: []
+  };
+
   // แสดงข้อความโหลดหรือข้อผิดพลาด
   if (loading) return <div className="text-center py-8">กำลังโหลดข้อมูล...</div>;
   if (error) return <div className="text-center text-red-500 py-8">{error}</div>;
@@ -51,14 +62,18 @@ export default function PackagesList() {
     <div>
       <h2 className="text-xl text-center mb-8">เลือกแพ็คเกจบริการ</h2>
       
-      {/* แสดงแพ็กเกจบริการ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
+      {/* แสดงแพ็กเกจบริการทั้งหมด */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-7xl mx-auto mb-12">
+        {/* Year Package ที่มีรูป QR Code (แสดงเป็นการ์ดแรก) */}
+        <YearPackageCard package={yearPackage} />
+        
+        {/* แพ็คเกจอื่นๆ จากระบบ */}
         {filteredPackages.map(pkg => (
           <PackageCard key={pkg.id} package={pkg} onAddPackage={addService} />
         ))}
       </div>
       
-      {filteredPackages.length === 0 && (
+      {filteredPackages.length === 0 && !yearPackage && (
         <div className="text-center text-gray-500 py-8">
           ไม่พบแพ็คเกจในหมวดหมู่นี้
         </div>
@@ -67,35 +82,85 @@ export default function PackagesList() {
   );
 }
 
-// Component แสดงการ์ดแพ็คเกจ
+// Component แสดงการ์ด Year Package
+function YearPackageCard({ package: pkg }) {
+  return (
+    <div className="bg-white rounded-lg border-2 border-[#444DDA] overflow-hidden shadow-lg relative h-full flex flex-col">
+      <div className="absolute top-0 right-0 bg-[#444DDA] text-white font-medium px-3 py-1 text-sm rounded-bl-lg">
+        พิเศษ
+      </div>
+      
+      <div className="p-4 border-b border-gray-200 text-center">
+        <h2 className="text-lg font-bold mb-2">{pkg.title}</h2>
+      </div>
+      
+      <div className="p-4 flex flex-col items-center flex-grow">
+        {pkg.description && (
+          <p className="text-gray-600 text-[14px] mb-4 text-center">{pkg.description}</p>
+        )}
+        
+        {/* รูปภาพ QR Code LINE ที่ขยายใหญ่ขึ้น */}
+        <div className="my-4 flex justify-center">
+          <img 
+            src="/QrCodeLine.png" 
+            alt="LINE QR Code" 
+            className="w-45 h-45 mx-auto rounded-lg border border-gray-200"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23f1f1f1'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%23333'%3ELINE QR CODE%3C/text%3E%3C/svg%3E";
+            }}
+          />
+        </div>
+        
+        <div className="mb-3 text-center">
+          <div className="font-medium text-base">LINE</div>
+          <div className="text-[14px] text-gray-600 mb-4">ติดต่อเจ้าหน้าที่เพื่อขอรายละเอียดเพิ่มเติม</div>
+        </div>
+        
+        <div className="mt-auto w-full">
+          <a 
+            href={pkg.lineUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 py-2.5 px-3 rounded-md font-medium transition-colors flex items-center justify-center text-[14px]"
+          >
+            <span>ติดต่อเข้าบริการ</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Component แสดงการ์ดแพ็คเกจทั่วไป
 function PackageCard({ package: pkg, onAddPackage }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-lg">
-      <div className="p-6 border-b border-gray-200 text-center">
-        <h2 className="text-xl font-medium mb-2">{pkg.title}</h2>
-        <div className="text-3xl font-bold mb-1">{pkg.price.toLocaleString()} บาท</div>
-        <div className="text-gray-500 text-sm mb-4">ต่อคน</div>
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-lg h-full flex flex-col">
+      <div className="p-4 border-b border-gray-200 text-center">
+        <h2 className="text-lg font-medium mb-2">{pkg.title}</h2>
+        <div className="text-2xl font-bold mb-1">{pkg.price.toLocaleString()} บาท</div>
+        <div className="text-gray-500 text-[14px] mb-2">ต่อคน</div>
         <button
           onClick={() => onAddPackage(pkg)}
-          className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors"
+          className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors text-[15px]"
         >
           เพิ่ม
         </button>
       </div>
       
-      <div className="p-6">
+      <div className="p-4 flex-grow">
         {pkg.description && (
-          <p className="text-gray-600 text-sm mb-4">{pkg.description}</p>
+          <p className="text-gray-600 text-[14px] mb-3">{pkg.description}</p>
         )}
         
-        <h3 className="text-sm font-medium mb-4">บริการที่รวมอยู่ในแพ็กเกจ:</h3>
-        <ul className="space-y-2">
+        <h3 className="text-[14px] font-medium mb-2">บริการที่รวมอยู่ในแพ็กเกจ:</h3>
+        <ul className="space-y-1">
           {pkg.services.map((service, index) => (
             <li key={index} className="flex items-start">
-              <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <svg className="w-4 h-4 text-green-500 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-sm text-gray-600">{service.title}</span>
+              <span className="text-[13px] text-gray-600">{service.title}</span>
             </li>
           ))}
         </ul>
