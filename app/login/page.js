@@ -12,8 +12,32 @@ const Login = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log({ email, password, rememberMe });
+    setLoading(true);
+    setError('');
+    
+    try {
+      // เรียกใช้ API Route เพื่อเข้าสู่ระบบ
+      const response = await axios.post('/api/auth/login', {
+        email,
+        password,
+      });
+      
+      console.log('Login successful:', response.data);
+      
+      // Redirect ไปยัง callback URL หรือ dashboard
+      if (callbackUrl) {
+        router.push(callbackUrl);
+      } else {
+        router.push('/dashboard');
+        router.refresh()
+      }
+      
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

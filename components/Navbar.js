@@ -1,47 +1,179 @@
+"use client";
+
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { ChevronDown, LayoutDashboard, UserCircle, Bell, LogOut } from 'lucide-react';
+import LogoutButton from './LogoutButton';
 
-const Navbar = () => {
+// User Dropdown Component
+const UserDropdown = ({ user }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
-    <nav className="w-full py-4 px-6 flex items-center justify-between border-b border-gray-200">
-      {/* Logo */}
-      <Link href="/">
-        <div className="flex items-center">
-          <Image
-            src="/LogoSC.png"
-            alt="SuperCertify Logo"
-            width={220}
-            height={50}
-            className="cursor-pointer"
-          />
+    <div className="relative" ref={dropdownRef}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 rounded-lg p-2 transition-colors duration-200"
+      >
+        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+          {user.username?.charAt(0).toUpperCase() || 'U'}
         </div>
-      </Link>
-      
-      {/* Navigation Links */}
-      <div className="hidden md:flex items-center space-x-8">
-        <Link href="/pricing" className="text-gray-700 hover:text-blue-600 transition">
-          Pricing Package
-        </Link>
-        <Link href="/tracking" className="text-gray-700 hover:text-blue-600 transition">
-          Tracking Process
-        </Link>
-        <Link href="/contact" className="text-gray-700 hover:text-blue-600 transition">
-          Contact Us
-        </Link>
+        <span className="text-gray-700 font-medium">{user.username}</span>
+        <ChevronDown 
+          className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+        />
       </div>
       
-      {/* Auth Buttons */}
-      <div className="flex items-center space-x-4">
-        <Link href="/register">
-          <button className="bg-yellow-400 text-black font-medium px-5 py-1.5 rounded-full hover:bg-yellow-500 transition">
-            Register
-          </button>
-        </Link>
-        <Link href="/login">
-          <button className="bg-blue-600 text-white font-medium px-5 py-1.5 rounded-full hover:bg-blue-700 transition">
-            Log In
-          </button>
-        </Link>
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+          {/* Triangle pointer */}
+          <div className="absolute -top-2 right-4 w-0 h-0 
+            border-l-8 border-l-transparent
+            border-b-8 border-b-white
+            border-r-8 border-r-transparent
+            shadow-md"></div>
+          
+          {/* User Info Header */}
+          <div className="flex items-center p-4 border-b border-gray-100">
+            <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold mr-3">
+              {user.username?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <p className="font-semibold text-gray-800">{user.username}</p>
+          </div>
+          
+          {/* Dropdown Menu Items */}
+          <div className="py-2">
+            <Link 
+              href="/dashboard" 
+              className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
+              onClick={() => setIsOpen(false)}
+            >
+              <LayoutDashboard className="w-5 h-5 mr-3 text-blue-500" />
+              Dashboard
+            </Link>
+            <Link 
+              href="/edit-profile" 
+              className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
+              onClick={() => setIsOpen(false)}
+            >
+              <UserCircle className="w-5 h-5 mr-3 text-green-500" />
+              Edit Profile
+            </Link>
+            <Link 
+              href="/notifications" 
+              className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
+              onClick={() => setIsOpen(false)}
+            >
+              <Bell className="w-5 h-5 mr-3 text-purple-500" />
+              Notifications
+            </Link>
+          </div>
+          
+          {/* Logout Section */}
+          <div className="border-t border-gray-100 px-4 py-3">
+            <LogoutButton className="w-full flex items-center text-red-600 hover:text-red-800" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function Navbar({ user, activePath }) {
+  // ฟังก์ชันตรวจสอบ path ที่ active
+  const isActiveLink = (path) => {
+    return activePath.startsWith(path);
+  };
+
+  return (
+    <nav className="bg-white shadow-md sticky top-0 z-50 w-full">
+      <div className="container mx-auto px-4 py-3 max-w-7xl">
+        <div className="flex justify-between items-center">
+          {/* Logo */}
+          <Link href="/">
+            <div className="flex items-center">
+              <Image
+                src="/LogoSC.png"
+                alt="SuperCertify Logo"
+                width={220}
+                height={50}
+                className="cursor-pointer"
+              />
+            </div>
+          </Link>
+          
+          {/* Desktop Menu */}
+          <div className="flex space-x-8 relative">
+            <Link 
+              href="/background-check" 
+              className={`text-gray-700 hover:text-blue-600 relative 
+                ${isActiveLink('/background-check') 
+                  ? 'text-blue-600 font-semibold' 
+                  : ''}`}
+            >
+              Background Check
+              {isActiveLink('/background-check') && (
+                <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-blue-600"></span>
+              )}
+            </Link>
+            <Link 
+              href="/tracking-process" 
+              className={`text-gray-700 hover:text-blue-600 relative 
+                ${isActiveLink('/tracking-process') 
+                  ? 'text-blue-600 font-semibold' 
+                  : ''}`}
+            >
+              Tracking Process
+              {isActiveLink('/tracking-process') && (
+                <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-blue-600"></span>
+              )}
+            </Link>
+            <Link 
+              href="/faqs" 
+              className={`text-gray-700 hover:text-blue-600 relative 
+                ${isActiveLink('/faqs') 
+                  ? 'text-blue-600 font-semibold' 
+                  : ''}`}
+            >
+              FAQs
+              {isActiveLink('/faqs') && (
+                <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-blue-600"></span>
+              )}
+            </Link>
+          </div>
+          
+          {/* Authentication/User Section */}
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <UserDropdown user={user} />
+            ) : (
+              <>
+                <Link href="/register" className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-medium py-2 px-4 rounded-full">
+                  Register
+                </Link>
+                <Link href="/login" className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-full">
+                  Log In
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </nav>
   );
