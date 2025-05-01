@@ -27,6 +27,7 @@ const apiCall = async (method, endpoint, data = null) => {
   const api = createApiInstance();
   
   try {
+    console.log(api.getUri())
     console.log(`🔄 API Call: ${method.toUpperCase()} ${endpoint}`);
     console.time(`API ${method.toUpperCase()} ${endpoint}`);
     

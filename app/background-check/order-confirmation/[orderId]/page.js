@@ -50,7 +50,7 @@ export default function OrderConfirmationPage() {
   }, [orderId]);
 
   const handleProceedToPayment = () => {
-    router.push(`/background-check/payment?orderId=${orderId}`);
+    router.push(`/background-check/payment/${orderId}`);
   };
   
   if (loading) {

@@ -46,7 +46,7 @@ export default function PackagesList() {
   // Year Package ที่มี QR Code LINE
   const yearPackage = {
     id: 'year-package',
-    title: 'Year Package',
+    title: 'Credit-Collect/Year',
     description: 'แพ็คเกจพิเศษรายปี สำหรับองค์กรที่ต้องการการตรวจสอบประวัติพนักงานในราคาพิเศษ',
     category: 'packages',
     isYearPackage: true,
