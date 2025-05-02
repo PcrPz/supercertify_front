@@ -15,7 +15,7 @@ const createApiInstance = () => {
       'Authorization': `Bearer ${token}`
     },
     withCredentials: true,
-    timeout: 10000 // กำหนด timeout เป็น 10 วินาที
+    timeout: 15000 // กำหนด timeout เป็น 10 วินาที
   });
 };
 

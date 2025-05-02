@@ -6,11 +6,11 @@ const ThreeSteps = () => {
     <section className="py-16 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-center text-2xl font-semibold text-gray-800 mb-4">
-          How SuperCertify works
+        วิธีการใช้บริการการตรวจสอบประวัติของเรา
         </h2>
         
         <h1 className="text-center text-4xl md:text-[35px] font-bold text-gray-900 mb-12">
-          Just three steps to check the background
+         เพียงสามขั้นตอนในการตรวจสอบประวัติ
         </h1>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
@@ -26,8 +26,8 @@ const ThreeSteps = () => {
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">1</h2>
-            <p className="font-bold">
-              Select the background check<br />you want to check.
+            <p className="font-bold text-[19px]">
+            เลือกบริการตรวจสอบประเภทที่ท่านต้องการ<br />
             </p>
           </div>
           
@@ -43,10 +43,10 @@ const ThreeSteps = () => {
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">2</h2>
-            <p className="font-bold">
-              Enter the full name and email<br />
-              address of the person you want to<br />
-              review to submit a consent request.
+            <p className="font-bold text-[19px]">
+             ใส่ชื่อและนามสกุลพร้อมอีเมลของบุคคล<br />
+             ที่ท่านต้องการตรวจสอบหรือตัวท่านเอง<br />
+             และส่งแบบตรวจสอบ
             </p>
           </div>
           
@@ -62,9 +62,9 @@ const ThreeSteps = () => {
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">3</h2>
-            <p className="font-bold">
-              Import the information file of<br />
-              the person you want to review.
+            <p className="font-bold text-[19px]">
+            แนบเอกสารที่ต้องใช้ในประเภท <br/>
+            การตรวจสอบที่ท่านเลือก
             </p>
           </div>
         </div>
