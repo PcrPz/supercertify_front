@@ -1,7 +1,8 @@
-"use client"
+'use client'
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
+import { register } from '../../services/auth';
 
 const Register = () => {
     const [username, setUsername] = useState('');
@@ -59,6 +60,12 @@ const Register = () => {
               </Link>
             </p>
 
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="relative">
                 <input
@@ -69,6 +76,7 @@ const Register = () => {
                   className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Username"
                   required
+                  disabled={loading}
                 />
                 <div className="absolute right-4 top-3.5">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
@@ -87,6 +95,7 @@ const Register = () => {
                   className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Email"
                   required
+                  disabled={loading}
                 />
                 <div className="absolute right-4 top-3.5">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
@@ -105,11 +114,14 @@ const Register = () => {
                   className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Password"
                   required
+                  disabled={loading}
+                  minLength={6}
                 />
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-3.5"
+                  disabled={loading}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
                     {showPassword ? (
@@ -131,9 +143,12 @@ const Register = () => {
 
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white font-medium py-3 px-4 rounded-full hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className={`w-full bg-blue-600 text-white font-medium py-3 px-4 rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'
+                }`}
+                disabled={loading}
               >
-                Create Account
+                {loading ? 'Creating Account...' : 'Create Account'}
               </button>
             </form>
 

@@ -178,5 +178,3 @@ export default function Navbar({ user, activePath }) {
     </nav>
   );
 };
-
-export default Navbar;
