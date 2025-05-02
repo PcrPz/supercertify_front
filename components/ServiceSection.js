@@ -9,102 +9,62 @@ export default function ServiceSection() {
   // ข้อมูลการ์ดทั้งหมด (สมมติว่ามี 12 การ์ด)
   const allCards = [
     {
-      id: 1,
+      id: 1, //ประวัติอาชญากรรม
       imageSrc: '/Service/Criminal.png',
-      title: 'Criminal Check',
-      description: 'Screens a background screening process that verifies an individuals criminal record, including arrests, convictions, and other legal offenses.'
+      title: 'ประวัติอาชญากรรม',
+      description: 'ตรวจสอบว่าบุคคลเคยมีประวัติอาชญากรรมหรือไม่ เช่น คดียาเสพติด ลักทรัพย์ หรือความผิดทางกฎหมายอื่น'
     },
     {
-      id: 2,
+      id: 2, //เครดิตทางการเงิน
       imageSrc: '/Service/Financial.png',
-      title: 'Financial Check (Credit Bureau)',
-      description: 'Screens a review of an individuals credit history, including loans, payments, debts, and creditworthiness, as reported by a credit bureau.'
+      title: 'เครดิตทางการเงิน (เครดิตบูโร)',
+      description: 'ตรวจสอบสถานะทางการเงิน เช่น ภาระหนี้ การผิดนัดชำระหนี้ หรือประวัติเครดิตเสีย'
     },
     {
-      id: 3,
+      id: 3, //ประวัติการทำางาน
       imageSrc: '/Service/Employment.png',
-      title: 'Employment Check',
-      description: 'Screens a verification process that confirms a candidates work history, job titles, durations, and performance or reasons for leaving.'
+      title: 'ประวัติการทำงาน',
+      description: 'ตรวจสอบข้อมูลการทำงานจากบริษัทเดิม เช่น ตำแหน่งงาน ระยะเวลาการทำงาน และลักษณะงานที่รับผิดชอบ'
     },
-    {
-      id: 4,
+    { 
+      id: 4, //ประวัติการศึกษา
       imageSrc: '/Service/Educational.png',
-      title: 'Education Check',
-      description: 'Screens a verification process that confirms the educational qualifications of an individual, such as degrees, certifications, and institutions attended.'
+      title: 'ประวัติการศึกษา',
+      description: 'ตรวจสอบวุฒิการศึกษา สถาบัน และปีที่สำเร็จการศึกษา เพื่อยืนยันความถูกต้องตรงกับข้อมูลที่อ้างอิง'
     },
     {
-      id: 5,
+      id: 5, //ประวัติข่าวเสียหายจากโลกออนไลน์
       imageSrc: '/Service/SocialMedia.png',
-      title: 'Social Media Check/Adverse Media Check',
-      description: 'Screens an individual\’s online presence for inappropriate, unethical, negative news or media coverage related to criminal activity, or reputational risks.'
+      title: 'ประวัติข่าวเสียหายจากโลกออนไลน์',
+      description: 'ค้นหาข้อมูลชื่อบุคคลจากแหล่งข่าวหรือโซเชียลมีเดียว่ามีเรื่องร้องเรียน ข้อกล่าวหา หรือข่าวเชิงลบหรือไม่'
     },
     {
-      id: 6,
-      imageSrc: '/Service/Sanction.png',
-      title: 'Sanctions and Enforcement Check',
-      description: 'Screens an individuals or entities against global watchlists, regulatory sanctions, and enforcement actions to identify legal or compliance risks.'
-    },
-    // การ์ดเพิ่มเติมที่จะแสดงเมื่อกด "Show More"
-    {
-      id: 7,
-      imageSrc: '/Service/Residental.png',
-      title: 'Residential Check',
-      description: 'Screens an individual\'s past addresses, rental history, and sometimes criminal or credit history to assess their reliability as a tenant or resident.'
-    },
-    {
-      id: 8,
-      imageSrc: '/Service/License.png',
-      title: 'License Check (e.g. Investment, Insurance)',
-      description: 'Screens an individual or business holds a valid, active license for regulated activities such as investment, insurance, real estate, or other professional services.'
-    },
-    {
-        id: 9,
-        imageSrc: '/Service/Certificate.png',
-        title: 'Certificate Check (e.g.ISTQB)',
-        description: 'Screens the authenticity and validity of professional certifications (e.g., ISTQB) to confirm an individual\'s qualifications and compliance with industry standards.'
-      },
-      {
-        id: 10,
-        imageSrc: '/Service/Driving.png',
-        title: 'Driving Experience Check',
-        description: 'Screens an individual\'s driving history, including license validity, years of experience, traffic violations, and accident records.'
-      },
-      {
-        id: 11,
-        imageSrc: '/Service/Bankrupt.png',
-        title: 'Bankruptcy History Check',
-        description: 'Screens an individual or entity has filed for bankruptcy, including details on past insolvencies, financial distress, and legal proceedings.'
-      },
-      {
-        id: 12,
-        imageSrc: '/Service/Identity.png',
-        title: 'Identity Check',
-        description: 'Screens an individual\'s personal information, such as name, date of birth, and government-issued ID, to confirm their identity and prevent fraud.'
-      },
-      {
-        id: 13,
-        imageSrc: '/Service/Drug.png',
-        title: 'Drugs Screening',
-        description: 'Screens an individual for the presence of illegal or controlled substances to ensure compliance with workplace, legal, or safety regulations.'
-      },
-      {
-        id: 14,
-        imageSrc: '/Service/Civil.png',
-        title: 'Civil Court Check',
-        description: 'Screens an individual’s history of involvement in civil lawsuits, such as disputes over contracts, property, or personal injury, to assess potential legal risks or liabilities.'
-      },
-      {
-        id: 15,
+        id: 6,// ประวัติการฉ ้ อโกง:
         imageSrc: '/Service/CriminalCourt.png',
-        title: 'Criminal Court Check',
-        description: 'Screens an individual’s history of criminal convictions or charges, including details of any past offenses, to assess potential risks for employment, housing, or legal purposes.'
+        title: 'ประวัติการฉ้อโกง',
+        description: 'ตรวจสอบการมีส่วนเกี่ยวข้องกับคดีหลอกลวง ฉ้อโกง หรือพฤติกรรมทุจริตต่าง ๆ'
+      },
+    // การ์ดเพิ่มเติมที่จะแสดงเมื่อกด "Show More"
+    { 
+      id: 7, // ตรวจสอบการปลอมเเปลงเอกสารรายได ้ จากที่ทำางานเก่า
+      imageSrc: '/Service/Residental.png',
+      title: 'ตรวจสอบการปลอมแปลงเอกสารรายได้',
+      description: 'ตรวจสอบความถูกต้องของสลิปเงินเดือน หนังสือรับรองรายได้ หรือหนังสือรับรองการทำงานจากบริษัทเดิม'
+    },
+    {
+        id: 8, // ประวัติการประพฤของพนักงาน ฌ ที่ทำางานเก่า
+        imageSrc: '/Service/Certificate.png',
+        title: 'ประวัติการประพฤติในการทำงาน',
+        description: 'ตรวจสอบนิสัยการทำงาน เช่น ความรับผิดชอบ การทำงานเป็นทีม และปัญหาด้านวินัยที่เคยเกิดขึ้น'
       },
       {
-        id: 16,
-        imageSrc: '/Service/Referal.png',
-        title: 'Referral Checker',
-        description: 'Screens references provided by an individual, such as previous employers or professional contacts, to confirm their credibility, work history, and qualifications.'
-      }
+        id: 9, //ประวัติการขับขี่
+        imageSrc: '/Service/Driving.png',
+        title: 'ประวัติการขับขี่',
+        description: 'ตรวจสอบใบขับขี่ ประวัติอุบัติเหตุ หรือคดีความที่เกี่ยวข้องกับการขับขี่ เช่น การเมาแล้วขับ'
+      },
+     
+
     // เพิ่มการ์ดอื่นๆ ตามต้องการ
   ];
 
@@ -121,7 +81,7 @@ export default function ServiceSection() {
   };
 
   // คำนวณข้อความบนปุ่ม
-  const buttonText = visibleCards >= allCards.length ? 'Show Less' : 'Show More';
+  const buttonText = visibleCards >= allCards.length ? 'แสดงน้อยลง' : 'แสดงเพิ่มเติม';
 
   return (
     <section className="py-16 bg-white">
