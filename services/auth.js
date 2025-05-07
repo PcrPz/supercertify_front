@@ -36,7 +36,7 @@ export const logout = async () => {
 // ฟังก์ชันสำหรับตรวจสอบสถานะการเข้าสู่ระบบ
 export const checkAuthStatus = async () => {
   try {
-    const response = await api.get('/auth/me');
+    const response = await api.get('/auth/status');
     return response.data;
     
   } catch (error) {

@@ -1,0 +1,106 @@
+import { NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    console.log('Admin notification request body:', body);
+    const { orderId, trackingNumber, totalPrice, paymentInfo } = body;
+
+    // ตรวจสอบข้อมูลที่จำเป็น
+    if (!orderId || !trackingNumber) {
+      return NextResponse.json(
+        { message: 'Missing required information' },
+        { status: 400 }
+      );
+    }
+
+    // สร้าง transporter
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: process.env.EMAIL_PORT,
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    // อีเมลสำหรับแอดมิน
+    const adminEmails = process.env.ADMIN_EMAILS.split(',');
+
+    // สร้าง HTML เนื้อหาอีเมล
+    const emailContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #444DDA; margin: 0;">มีการแจ้งชำระเงินใหม่</h2>
+          <p style="color: #666;">รหัสคำสั่งซื้อ: #${trackingNumber}</p>
+        </div>
+        
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+          <h3 style="margin-top: 0; color: #333;">ข้อมูลการชำระเงิน</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; width: 40%;">ชื่อผู้โอน:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${paymentInfo?.transferInfo?.name || 'ไม่ระบุ'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">วันที่โอน:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${paymentInfo?.transferInfo?.date || 'ไม่ระบุ'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">จำนวนเงิน:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${parseInt(paymentInfo?.transferInfo?.amount || 0).toLocaleString()} บาท</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">ยอดตามคำสั่งซื้อ:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">${parseInt(totalPrice || 0).toLocaleString()} บาท</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">วิธีการชำระเงิน:</td>
+              <td style="padding: 8px 0;">${paymentInfo?.paymentMethod === 'qr_payment' ? 'QR พร้อมเพย์' : 'โอนเงินผ่านธนาคาร'}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <a href="${process.env.SITE_URL || 'https://supercertify.com'}/admin/payments" style="display: inline-block; background-color: #444DDA; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">ดูรายละเอียดคำสั่งซื้อ</a>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #777; font-size: 12px;">
+          <p>นี่เป็นอีเมลอัตโนมัติจากระบบ SuperCertify กรุณาอย่าตอบกลับ</p>
+        </div>
+      </div>
+    `;
+
+    // ตั้งค่าอีเมล
+    const mailOptions = {
+      from: `"SuperCertify" <${process.env.EMAIL_FROM}>`,
+      to: adminEmails.join(','),
+      subject: `[SuperCertify] มีการแจ้งชำระเงินใหม่ - คำสั่งซื้อ #${trackingNumber}`,
+      html: emailContent,
+    };
+
+    // ถ้ามีสลิปการโอนเงิน ให้แนบไปกับอีเมล
+    if (paymentInfo?.transferInfo?.receiptUrl) {
+      mailOptions.attachments = [
+        {
+          filename: `receipt-${trackingNumber}.jpg`,
+          path: paymentInfo.transferInfo.receiptUrl
+        }
+      ];
+    }
+
+    // ส่งอีเมล
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent to admin:', info.messageId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error sending email to admin:', error);
+    return NextResponse.json(
+      { message: 'Failed to send email to admin', error: error.message },
+      { status: 500 }
+    );
+  }
+}

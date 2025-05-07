@@ -23,7 +23,8 @@ export default function ApplicantForm() {
     addServiceToApplicant,
     removeServiceFromApplicant,
     getAvailableServicesForApplicant,
-    areAllServicesFullyAssigned
+    areAllServicesFullyAssigned,
+    resetState
   } = useCheck();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -145,16 +146,16 @@ export default function ApplicantForm() {
     }
     
     try {
-        setIsSubmitting(true);
-        
-        // สร้างรายการบริการตามรูปแบบที่กำหนด
-        const services = cart.map(item => ({
-          service: item.id,
-          title: item.title,
-          quantity: item.quantity,
-          price: item.price,
-        }));
+      setIsSubmitting(true);
       
+      // สร้างรายการบริการตามรูปแบบที่กำหนด
+      const services = cart.map(item => ({
+        service: item.id,
+        title: item.title,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+    
       // Object เก็บ mapping ระหว่าง package ID และ service IDs ย่อย
       const packageToServicesMap = {};
       
@@ -224,6 +225,8 @@ export default function ApplicantForm() {
       const result = await createOrder(orderData);
       
       if (result.success) {
+        // เรียกใช้ resetState เพื่อล้างข้อมูลทั้งหมดก่อนนำทางไปยังหน้ายืนยันคำสั่งซื้อ
+        resetState();
         router.push(`/background-check/order-confirmation/${result.orderId}`);
       } else {
         throw new Error(result.message || 'การสั่งซื้อล้มเหลว');
@@ -236,7 +239,6 @@ export default function ApplicantForm() {
       setIsSubmitting(false);
     }
   };
-  
   
   return (
     <div className="container max-w-2xl mx-auto p-8">

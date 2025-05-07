@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getOrderById } from '@/services/apiService';
+import { getOrderById, deleteOrder } from '@/services/apiService';
 
 export default function OrderConfirmationPage() {
   const params = useParams();
@@ -11,6 +11,8 @@ export default function OrderConfirmationPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   useEffect(() => {
     if (!orderId) {
@@ -51,6 +53,29 @@ export default function OrderConfirmationPage() {
 
   const handleProceedToPayment = () => {
     router.push(`/background-check/payment/${orderId}`);
+  };
+  
+  const handleDeleteOrder = async () => {
+    try {
+      setIsDeleting(true);
+      const result = await deleteOrder(orderId);
+      
+      if (result.success) {
+        router.push('/background-check/select-services');
+      } else {
+        throw new Error(result.message || 'การลบคำสั่งซื้อล้มเหลว');
+      }
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      alert(`เกิดข้อผิดพลาดในการลบคำสั่งซื้อ: ${error.message}`);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+  
+  const toggleDeleteConfirm = () => {
+    setShowDeleteConfirm(!showDeleteConfirm);
   };
   
   if (loading) {
@@ -278,14 +303,60 @@ export default function OrderConfirmationPage() {
             </div>
           </div>
           
-          <button
-            onClick={handleProceedToPayment}
-            className="w-full bg-[#444DDA] text-white py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-md"
-          >
-            ดำเนินการชำระเงิน
-          </button>  
+          <div className="space-y-4">
+            <button
+              onClick={handleProceedToPayment}
+              className="w-full bg-[#444DDA] text-white py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-md"
+            >
+              ดำเนินการชำระเงิน
+            </button>
+            
+            <button
+              onClick={toggleDeleteConfirm}
+              className="w-full bg-white border-2 border-red-500 text-red-500 py-4 rounded-xl font-medium hover:bg-red-50 transition-colors"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'กำลังลบคำสั่งซื้อ...' : 'ยกเลิกคำสั่งซื้อ'}
+            </button>
+          </div>
         </div>
       </div>
+      
+      {/* Modal ยืนยันการลบ order */}
+      {showDeleteConfirm && (
+  <div  className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+      <div className="text-center mb-6">
+        <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold text-gray-800">ยืนยันการยกเลิกคำสั่งซื้อ</h3>
+        <p className="text-gray-600 mt-2">
+          คุณต้องการยกเลิกคำสั่งซื้อนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
+        </p>
+      </div>
+      
+      <div className="flex space-x-3">
+        <button
+          onClick={toggleDeleteConfirm}
+          className="flex-1 bg-gray-100 py-3 rounded-xl font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+          disabled={isDeleting}
+        >
+          ยกเลิก
+        </button>
+        <button
+          onClick={handleDeleteOrder}
+          className="flex-1 bg-red-500 py-3 rounded-xl font-medium text-white hover:bg-red-600 transition-colors"
+          disabled={isDeleting}
+        >
+          {isDeleting ? 'กำลังลบ...' : 'ยืนยัน'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

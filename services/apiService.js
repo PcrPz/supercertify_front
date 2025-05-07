@@ -15,6 +15,7 @@ const createApiInstance = () => {
     withCredentials: true,
     timeout: 15000 // กำหนด timeout เป็น 15 วินาที
   });
+  
 };
 
 // สร้างฟังก์ชันครอบการเรียก API พร้อมระบบ logging และ error handling
@@ -239,4 +240,28 @@ export async function updatePaymentStatus(paymentId, statusData) {
  */
 export async function checkPaymentStatus(orderId) {
   return apiCall('get', `/api/orders/${orderId}/payment-status`);
+}
+
+/**
+ * ลบคำสั่งซื้อตาม ID
+ * @param {string} orderId รหัสคำสั่งซื้อ
+ * @returns {Promise<Object>} ผลลัพธ์การลบคำสั่งซื้อ
+ */
+export async function deleteOrder(orderId) {
+  try {
+    const result = await apiCall('delete', `/api/orders/${orderId}`);
+    
+    return {
+      success: true,
+      message: 'ลบคำสั่งซื้อสำเร็จ',
+      data: result
+    };
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการลบคำสั่งซื้อ',
+      error
+    };
+  }
 }

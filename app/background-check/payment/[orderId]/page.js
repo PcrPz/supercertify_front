@@ -135,7 +135,7 @@ export default function PaymentPage() {
         // ส่งอีเมลแจ้งเตือนแอดมิน
         try {
           const orderData = await getOrderById(orderId);
-          // await sendPaymentNotificationToAdmin(orderData);
+          await sendPaymentNotificationToAdmin(orderData);
           
           // เพิ่มการหน่วงเวลา 2 วินาที เพื่อให้ข้อมูลถูกบันทึกสมบูรณ์
           await new Promise(resolve => setTimeout(resolve, 2000));

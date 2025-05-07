@@ -107,34 +107,85 @@ export function CheckProvider({ children }) {
 
   // ฟังก์ชันนับจำนวนบริการภายใน package
   const countPackageServices = (item) => {
+    console.log("Counting services for package:", item);
+    
     // ถ้ามี subServices ใช้จำนวนจาก subServices
     if (item.subServices && Array.isArray(item.subServices)) {
+      console.log(`Found ${item.subServices.length} services in subServices`);
       return item.subServices.length;
     } 
     // ถ้ามี packageItems ใช้จำนวนจาก packageItems
     else if (item.packageItems && Array.isArray(item.packageItems)) {
+      console.log(`Found ${item.packageItems.length} services in packageItems`);
       return item.packageItems.length;
-    } 
+    }
+    // ถ้ามี services และเป็น array ใช้จำนวนจาก services
+    else if (item.services && Array.isArray(item.services)) {
+      console.log(`Found ${item.services.length} services in services array`);
+      return item.services.length;
+    }
+    // ถ้ามี packageServices และเป็น array ใช้จำนวนจาก packageServices
+    else if (item.packageServices && Array.isArray(item.packageServices)) {
+      console.log(`Found ${item.packageServices.length} services in packageServices array`);
+      return item.packageServices.length;
+    }
+    // ถ้ามีฟิลด์ serviceCount ที่เป็นตัวเลข ใช้ค่านั้นเลย
+    else if (item.serviceCount && typeof item.serviceCount === 'number') {
+      console.log(`Using explicit serviceCount: ${item.serviceCount}`);
+      return item.serviceCount;
+    }
+    // ถ้ามีฟิลด์ packageSize ที่เป็นตัวเลข ใช้ค่านั้น
+    else if (item.packageSize && typeof item.packageSize === 'number') {
+      console.log(`Using packageSize: ${item.packageSize}`);
+      return item.packageSize;
+    }
     // ถ้าไม่มีข้อมูลชัดเจน ใช้ค่าประมาณจากชื่อหรือค่าเริ่มต้น
     else {
       let packageServiceCount = 2; // ค่าเริ่มต้น
       
       if (item.title) {
-        // ลองดึงตัวเลขจากชื่อ เช่น "Starter Package (3 services)"
-        const matches = item.title.match(/\((\d+)\s*services?\)/i);
+        // ลองดึงตัวเลขจากชื่อ เช่น "Starter Package (3 services)" หรือ "Package (4)"
+        const matches = item.title.match(/\((\d+)(?:\s*services?)?\)/i);
         if (matches && matches[1]) {
           packageServiceCount = parseInt(matches[1], 10);
+          console.log(`Extracted service count ${packageServiceCount} from title pattern`);
         } 
+        // หรือลองดึงตัวเลขที่ปรากฏในชื่อ (ถ้ามี)
+        else {
+          const numberMatches = item.title.match(/\b(\d+)\b/);
+          if (numberMatches && numberMatches[1]) {
+            const potentialCount = parseInt(numberMatches[1], 10);
+            // ตรวจสอบว่าตัวเลขที่พบมีความเป็นไปได้ที่จะเป็นจำนวนบริการหรือไม่ (ระหว่าง 2-10)
+            if (potentialCount >= 2 && potentialCount <= 10) {
+              packageServiceCount = potentialCount;
+              console.log(`Found number ${packageServiceCount} in title, using as service count`);
+            }
+          }
+        }
+        
         // หรือลองเดาจากชื่อ
-        else if (item.title.toLowerCase().includes('starter')) {
-          packageServiceCount = 2;
-        } else if (item.title.toLowerCase().includes('premium')) {
-          packageServiceCount = 3;
-        } else if (item.title.toLowerCase().includes('complete')) {
-          packageServiceCount = 4;
+        if (packageServiceCount === 2) { // ยังใช้ค่าเริ่มต้น แสดงว่ายังไม่พบตัวเลขที่ชัดเจน
+          const titleLower = item.title.toLowerCase();
+          
+          if (titleLower.includes('complete') || titleLower.includes('full') || 
+              titleLower.includes('comprehensive') || titleLower.includes('all-in-one')) {
+            packageServiceCount = 4;
+            console.log(`Title contains 'complete/full/comprehensive', assuming it has 4 services`);
+          } 
+          else if (titleLower.includes('premium') || titleLower.includes('plus') || 
+                  titleLower.includes('enhanced') || titleLower.includes('advanced')) {
+            packageServiceCount = 3;
+            console.log(`Title contains 'premium/plus/enhanced/advanced', assuming it has 3 services`);
+          }
+          else if (titleLower.includes('basic') || titleLower.includes('starter') || 
+                  titleLower.includes('simple') || titleLower.includes('standard')) {
+            packageServiceCount = 2;
+            console.log(`Title contains 'basic/starter/simple/standard', assuming it has 2 services`);
+          }
         }
       }
       
+      console.log(`Using estimated service count: ${packageServiceCount}`);
       return packageServiceCount;
     }
   };

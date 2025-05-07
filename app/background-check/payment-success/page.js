@@ -114,6 +114,28 @@ export default function PaymentSuccessPage() {
     }
   };
 
+  // คำนวณส่วนลด (ถ้ามี)
+  const calculateDiscount = () => {
+    if (!order) return { hasDiscount: false, discountAmount: 0, discountPercentage: 0 };
+    
+    // ตรวจสอบว่ามีส่วนลดหรือไม่
+    const originalPrice = order.OriginalPrice || order.SubTotalPrice;
+    const finalPrice = order.TotalPrice;
+    
+    if (originalPrice && finalPrice && originalPrice > finalPrice) {
+      const discountAmount = originalPrice - finalPrice;
+      const discountPercentage = Math.round((discountAmount / originalPrice) * 100);
+      return {
+        hasDiscount: true,
+        discountAmount,
+        discountPercentage,
+        originalPrice
+      };
+    }
+    
+    return { hasDiscount: false, discountAmount: 0, discountPercentage: 0 };
+  };
+
   // ฟังก์ชันสำหรับรีเฟรชหน้า
   const handleRefresh = () => {
     window.location.reload();
@@ -169,6 +191,9 @@ export default function PaymentSuccessPage() {
       </div>
     );
   }
+  
+  // คำนวณข้อมูลส่วนลด
+  const discountInfo = calculateDiscount();
   
   return (
     <div className="container max-w-5xl mx-auto p-6">
@@ -288,9 +313,30 @@ export default function PaymentSuccessPage() {
                 }
               </p>
             </div>
+            
+            {/* แสดงราคาปกติ (ถ้ามีส่วนลด) */}
+            {discountInfo.hasDiscount && (
+              <div className="flex justify-between">
+                <p className="text-gray-600">Original Price</p>
+                <p className="font-medium line-through text-gray-500">
+                  {discountInfo.originalPrice.toLocaleString()} BAHT
+                </p>
+              </div>
+            )}
+            
+            {/* แสดงส่วนลด (ถ้ามี) */}
+            {discountInfo.hasDiscount && (
+              <div className="flex justify-between">
+                <p className="text-gray-600">Discount</p>
+                <p className="font-medium text-green-600">
+                  - {discountInfo.discountAmount.toLocaleString()} BAHT ({discountInfo.discountPercentage}%)
+                </p>
+              </div>
+            )}
+            
             <div className="flex justify-between">
-              <p className="text-gray-600">Subtotal</p>
-              <p className="font-medium">{order.SubTotalPrice?.toLocaleString() || 0} BAHT</p>
+              <p className="text-gray-600">Total Price</p>
+              <p className="font-medium">{order.TotalPrice?.toLocaleString() || 0} BAHT</p>
             </div>
             
             <div className="flex justify-between">
@@ -308,10 +354,12 @@ export default function PaymentSuccessPage() {
             
             <div className="pt-4 border-t border-gray-200">
               <div className="flex justify-between items-center bg-yellow-400 text-gray-700 px-4 py-3 rounded-xl">
-                <p className="font-bold">Total</p>
-                <p className="font-bold">
-                  {order.TotalPrice?.toLocaleString()} BAHT
-                </p>
+                <p className="font-bold">Total Price</p>
+                <div>
+                  <p className="font-bold">
+                    {order.TotalPrice?.toLocaleString()} BAHT
+                  </p>
+                </div>
               </div>
             </div>
           </div>
