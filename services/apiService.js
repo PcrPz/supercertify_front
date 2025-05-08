@@ -181,23 +181,41 @@ export async function updateOrder(orderId, orderData) {
 /**
  * อัปเดตข้อมูลการชำระเงิน
  * @param {string} orderId รหัสคำสั่งซื้อ
- * @param {Object} paymentData ข้อมูลการชำระเงิน
+ * @param {FormData} formData ข้อมูลการชำระเงินพร้อมไฟล์ (FormData)
  * @returns {Promise<Object>} ผลลัพธ์การอัปเดตข้อมูลการชำระเงิน
  */
-export async function updatePayment(orderId, paymentData) {
+export async function updatePayment(orderId, formData) {
   try {
-    const result = await apiCall('post', `/api/payments`, {
-      orderId: orderId,
-      ...paymentData
+    // เพิ่ม orderId เข้าไปใน FormData (ถ้ายังไม่มี)
+    if (!formData.has('orderId')) {
+      formData.append('orderId', orderId);
+    }
+    
+    // สร้าง instance ของ axios พร้อมกำหนดค่าเริ่มต้น
+    const token = Cookies.get('access_token');
+    const api = axios.create({
+      baseURL: process.env.API_URL,
+      headers: {
+        'Content-Type': 'multipart/form-data', // เปลี่ยนเป็น multipart/form-data
+        'Authorization': `Bearer ${token}`
+      },
+      withCredentials: true,
+      timeout: 30000 // เพิ่ม timeout เป็น 30 วินาที เพราะอัปโหลดไฟล์อาจใช้เวลานาน
     });
     
-    console.log('Payment Update Result:', result);
+    console.log('🔄 API Call: POST /api/payments');
+    console.time('API POST /api/payments');
+    
+    const response = await api.post('/api/payments', formData);
+    
+    console.timeEnd('API POST /api/payments');
+    console.log('✅ API Success: POST /api/payments', response.data);
     
     return {
       success: true,
       orderId: orderId,
       message: 'อัปเดตข้อมูลการชำระเงินสำเร็จ',
-      orderData: result
+      orderData: response.data
     };
   } catch (error) {
     console.error('Error updating payment:', error);
