@@ -1,12 +1,10 @@
-// services/apiService.js process.env.API_URL
-
+// services/apiService.js
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
 // สร้าง instance ของ axios พร้อมกำหนดค่าเริ่มต้น
 const createApiInstance = () => {
   const token = Cookies.get('access_token');
-  console.log(token)
   
   return axios.create({
     baseURL: process.env.API_URL, // API Server ที่ต้องการเรียกใช้
@@ -15,8 +13,9 @@ const createApiInstance = () => {
       'Authorization': `Bearer ${token}`
     },
     withCredentials: true,
-    timeout: 15000 // กำหนด timeout เป็น 10 วินาที
+    timeout: 15000 // กำหนด timeout เป็น 15 วินาที
   });
+  
 };
 
 // สร้างฟังก์ชันครอบการเรียก API พร้อมระบบ logging และ error handling
@@ -27,7 +26,6 @@ const apiCall = async (method, endpoint, data = null) => {
   const api = createApiInstance();
   
   try {
-    console.log(api.getUri())
     console.log(`🔄 API Call: ${method.toUpperCase()} ${endpoint}`);
     console.time(`API ${method.toUpperCase()} ${endpoint}`);
     
@@ -48,28 +46,7 @@ const apiCall = async (method, endpoint, data = null) => {
     return response.data;
   } catch (error) {
     console.timeEnd(`API ${method.toUpperCase()} ${endpoint}`);
-    console.error(`❌ Complete API Error Details:`, {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
-      headers: error.response?.headers,
-      config: error.config
-    });
-    
-    // Detailed error handling
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error('Error Response Data:', error.response.data);
-      console.error('Error Response Status:', error.response.status);
-      console.error('Error Response Headers:', error.response.headers);
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error('Error Request:', error.request);
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error('Error Message:', error.message);
-    }
+    console.error(`❌ Complete API Error Details:`, error);
     
     throw error;
   }
@@ -106,7 +83,6 @@ export async function getServiceNames() {
   }
 }
 
-
 /**
  * สร้างคำสั่งซื้อใหม่
  * @param {Object} orderData ข้อมูลคำสั่งซื้อ
@@ -115,8 +91,6 @@ export async function getServiceNames() {
 export async function createOrder(orderData) {
   try {
     const result = await apiCall('post', '/api/orders', orderData);
-
-    console.log('Order Creation Result:', result._id); 
     
     return {
       success: true,
@@ -159,7 +133,7 @@ export async function getOrderById(orderId) {
         ...candidate,
         services: candidate.services.map(serviceId => ({
           id: serviceId,
-          name: serviceMap[serviceId].Service_Title || `บริการ #${serviceId}`
+          name: serviceMap[serviceId]?.Service_Title || `บริการ #${serviceId}`
         }))
       }));
     }
@@ -171,7 +145,13 @@ export async function getOrderById(orderId) {
   }
 }
 
-
+/**
+ * ดึงข้อมูลคำสั่งซื้อทั้งหมด (สำหรับ Admin)
+ * @returns {Promise<Array>} รายการคำสั่งซื้อทั้งหมด
+ */
+export async function getAllOrders() {
+  return apiCall('get', '/api/orders');
+}
 
 /**
  * อัปเดตข้อมูลคำสั่งซื้อ
@@ -206,18 +186,48 @@ export async function updateOrder(orderId, orderData) {
  */
 export async function updatePayment(orderId, paymentData) {
   try {
-    const result = await apiCall('post', `/api/orders/${orderId}/payment`, paymentData);
+    const result = await apiCall('post', `/api/payments`, {
+      orderId: orderId,
+      ...paymentData
+    });
+    
+    console.log('Payment Update Result:', result);
     
     return {
       success: true,
-      payment: result.payment,
-      message: result.message || 'อัปเดตข้อมูลการชำระเงินสำเร็จ',
+      orderId: orderId,
+      message: 'อัปเดตข้อมูลการชำระเงินสำเร็จ',
+      orderData: result
+    };
+  } catch (error) {
+    console.error('Error updating payment:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลการชำระเงิน',
+      error
+    };
+  }
+}
+
+/**
+ * อัปเดตสถานะการชำระเงิน (สำหรับ Admin)
+ * @param {string} orderId รหัสคำสั่งซื้อ
+ * @param {Object} statusData ข้อมูลสถานะการชำระเงิน
+ * @returns {Promise<Object>} ผลลัพธ์การอัปเดตสถานะการชำระเงิน
+ */
+export async function updatePaymentStatus(paymentId, statusData) {
+  try {
+    const result = await apiCall('put', `/api/payments/${paymentId}/status`, statusData);
+    
+    return {
+      success: true,
+      message: 'อัปเดตสถานะการชำระเงินสำเร็จ',
       data: result
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลการชำระเงิน',
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปเดตสถานะการชำระเงิน',
       error
     };
   }
@@ -230,4 +240,28 @@ export async function updatePayment(orderId, paymentData) {
  */
 export async function checkPaymentStatus(orderId) {
   return apiCall('get', `/api/orders/${orderId}/payment-status`);
+}
+
+/**
+ * ลบคำสั่งซื้อตาม ID
+ * @param {string} orderId รหัสคำสั่งซื้อ
+ * @returns {Promise<Object>} ผลลัพธ์การลบคำสั่งซื้อ
+ */
+export async function deleteOrder(orderId) {
+  try {
+    const result = await apiCall('delete', `/api/orders/${orderId}`);
+    
+    return {
+      success: true,
+      message: 'ลบคำสั่งซื้อสำเร็จ',
+      data: result
+    };
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการลบคำสั่งซื้อ',
+      error
+    };
+  }
 }

@@ -2,12 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getOrderById, updatePayment } from '@/services/apiService';
+import { sendPaymentNotificationToAdmin } from '@/services/emailService';
 
-export default function SimplePaymentPage() {
+export default function PaymentPage() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-  const orderId = params.orderId || searchParams.get('orderId');
+  const orderId = params.orderId;
   
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +38,13 @@ export default function SimplePaymentPage() {
       try {
         const orderData = await getOrderById(orderId);
         setOrder(orderData);
+        
+        // กำหนดยอดเงินที่ต้องชำระ
+        setTransferInfo(prev => ({
+          ...prev,
+          amount: orderData.TotalPrice.toString()
+        }));
+        
         setLoading(false);
       } catch (err) {
         console.error('Error fetching order:', err);
@@ -48,6 +55,11 @@ export default function SimplePaymentPage() {
     
     fetchOrderData();
   }, [orderId]);
+  
+  // จัดการการเปลี่ยนวิธีการชำระเงิน
+  const handlePaymentMethodChange = (method) => {
+    setPaymentMethod(method);
+  };
   
   // จัดการการเปลี่ยนข้อมูลการโอนเงิน
   const handleTransferInfoChange = (field, value) => {
@@ -73,33 +85,77 @@ export default function SimplePaymentPage() {
     }
   };
   
+  // อัปโหลดสลิปไปยังเซิร์ฟเวอร์ (simulatedในตัวอย่างนี้) และได้ URL
+  const uploadReceipt = async (file) => {
+    // ในสถานการณ์จริง คุณต้องอัปโหลดไฟล์ไปยังเซิร์ฟเวอร์และรับ URL กลับมา
+    // ในตัวอย่างนี้ เราจะจำลองการอัปโหลดและคืนค่า URL ตัวอย่าง
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // สมมติว่าอัปโหลดสำเร็จและได้ URL
+        resolve(transferInfo.receiptPreview);
+      }, 1000);
+    });
+  };
+  
   // จัดการการส่งข้อมูลการชำระเงิน
   const handleConfirmPayment = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // สร้างข้อมูลการชำระเงินเบื้องต้น
-      let paymentData = {
-        orderId,
-        paymentMethod,
-        amount: order.TotalPrice,
+      // ตรวจสอบข้อมูลที่จำเป็น
+      if (!transferInfo.name || !transferInfo.date || !transferInfo.amount) {
+        throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+      }
+      
+      // ถ้ามีการอัปโหลดสลิป ให้อัปโหลดไปยังเซิร์ฟเวอร์และรับ URL
+      let receiptUrl = null;
+      if (transferInfo.receipt) {
+        receiptUrl = await uploadReceipt(transferInfo.receipt);
+      }
+      
+      // สร้างข้อมูลการชำระเงิน - ไม่รวม timestamp
+      const paymentData = {
+        paymentMethod: paymentMethod,
         transferInfo: {
           name: transferInfo.name,
           date: transferInfo.date,
           amount: transferInfo.amount,
-          reference: transferInfo.reference
-        },
-        paymentStatus: 'pending_verification' // สถานะรอการตรวจสอบ
+          reference: transferInfo.reference,
+          receiptUrl: receiptUrl
+        }
       };
       
+      console.log('Sending payment data:', paymentData); // เพิ่ม log เพื่อตรวจสอบข้อมูล
+      
       // ส่งข้อมูลการชำระเงินไปยัง API
-      // ในระบบจริง จะมีการอัปโหลดหลักฐานการชำระเงินด้วย
       const result = await updatePayment(orderId, paymentData);
       
       if (result.success) {
-        // ไปยังหน้าแสดงผลการชำระเงิน
-        router.push(`/background-check/payment-success?orderId=${orderId}`);
+        // ส่งอีเมลแจ้งเตือนแอดมิน
+        try {
+          const orderData = await getOrderById(orderId);
+          await sendPaymentNotificationToAdmin(orderData);
+          
+          // เพิ่มการหน่วงเวลา 2 วินาที เพื่อให้ข้อมูลถูกบันทึกสมบูรณ์
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // ตรวจสอบว่าข้อมูลการชำระเงินถูกบันทึกถูกต้องหรือไม่
+          const verifyOrder = await getOrderById(orderId);
+          if (!verifyOrder || !verifyOrder.payment) {
+            console.log('Payment data not found, waiting more time...');
+            // หากยังไม่พบข้อมูลการชำระเงิน ให้รอเพิ่มอีก 3 วินาที
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+          
+          // ไปยังหน้าแสดงผลการชำระเงิน
+          router.push(`/background-check/payment-success?orderId=${orderId}`);
+        } catch (emailError) {
+          console.error('Failed to verify payment:', emailError);
+          // แม้จะเกิดข้อผิดพลาดในการตรวจสอบ ก็ยังให้ไปยังหน้าถัดไป
+          window.location.href = `/background-check/payment-success?orderId=${orderId}`;
+
+        }
       } else {
         throw new Error(result.message || 'การชำระเงินล้มเหลว');
       }
@@ -206,7 +262,7 @@ export default function SimplePaymentPage() {
         <div className="px-8 py-6">
           <div className="grid grid-cols-2 gap-4 mb-6">
             <button
-              onClick={() => setPaymentMethod('qr_payment')}
+              onClick={() => handlePaymentMethodChange('qr_payment')}
               className={`p-4 rounded-xl border-2 transition-all ${paymentMethod === 'qr_payment' ? 'border-[#444DDA] bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
             >
               <div className="flex flex-col items-center justify-center">
@@ -218,7 +274,7 @@ export default function SimplePaymentPage() {
             </button>
             
             <button
-              onClick={() => setPaymentMethod('bank_transfer')}
+              onClick={() => handlePaymentMethodChange('bank_transfer')}
               className={`p-4 rounded-xl border-2 transition-all ${paymentMethod === 'bank_transfer' ? 'border-[#444DDA] bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
             >
               <div className="flex flex-col items-center justify-center">
