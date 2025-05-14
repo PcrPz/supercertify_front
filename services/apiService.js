@@ -21,8 +21,6 @@ const createApiInstance = () => {
 // สร้างฟังก์ชันครอบการเรียก API พร้อมระบบ logging และ error handling
 const apiCall = async (method, endpoint, data = null) => {
   const token = Cookies.get('access_token');
-  console.log('Current Token:', token); // Debug token
-
   const api = createApiInstance();
   
   try {
@@ -115,8 +113,6 @@ export async function createOrder(orderData) {
 export async function getOrderById(orderId) {
   try {
     const token = Cookies.get('access_token');
-    console.log('Order Fetch - Token:', token);
-    
     if (!token) {
       throw new Error('No access token found');
     }
@@ -124,18 +120,74 @@ export async function getOrderById(orderId) {
     // Fetch order data
     const orderData = await apiCall('get', `/api/orders/${orderId}`);
     
+    // Fetch candidates for this order
+    const candidatesResponse = await apiCall('get', `/api/candidates/order/${orderId}`);
+    orderData.candidates = candidatesResponse;
+    
     // Fetch service names
     const serviceMap = await getServiceNames();
     
-    // Map service names for candidates
-    if (orderData.candidates) {
-      orderData.candidates = orderData.candidates.map(candidate => ({
-        ...candidate,
-        services: candidate.services.map(serviceId => ({
-          id: serviceId,
-          name: serviceMap[serviceId]?.Service_Title || `บริการ #${serviceId}`
-        }))
+    // Map service names for candidates and check document status
+    if (orderData.candidates && orderData.candidates.length > 0) {
+      // Process each candidate
+      const candidatesWithServices = await Promise.all(orderData.candidates.map(async (candidate) => {
+        // For each candidate, get their documents status
+        try {
+          // ดึงข้อมูลเอกสารที่ขาดของ candidate
+          const missingDocsResponse = await apiCall('get', `/api/documents/candidate/${candidate._id}/missing`);
+          
+          // ดึงข้อมูลเอกสารที่อัปโหลดแล้วของ candidate
+          const uploadedDocsResponse = await apiCall('get', `/api/documents/candidate/${candidate._id}/documents`);
+          
+          // คำนวณจำนวนเอกสารที่ต้องอัปโหลด/ที่อัปโหลดแล้วของแต่ละบริการ
+          const servicesWithStatus = candidate.services.map(serviceId => {
+            // ดึงชื่อบริการจาก serviceMap
+            const serviceTitle = serviceMap[serviceId]?.Service_Title || `บริการ #${serviceId}`;
+            
+            // นับเอกสารที่ขาดของ service นี้
+            const missingDocs = missingDocsResponse.missingDocuments?.filter(
+              doc => doc.serviceId === serviceId
+            ) || [];
+            
+            // นับเอกสารที่อัปโหลดแล้วของ service นี้
+            const uploadedServiceDocs = uploadedDocsResponse.serviceDocuments?.find(
+              sd => sd.service._id === serviceId
+            );
+            
+            const uploadedDocsCount = uploadedServiceDocs ? uploadedServiceDocs.documents.length : 0;
+            
+            // คำนวณจำนวนเอกสารทั้งหมดที่ต้องการ
+            const totalDocsRequired = missingDocs.length + uploadedDocsCount;
+            
+            return {
+              id: serviceId,
+              name: serviceTitle,
+              missingDocs: missingDocs.length,
+              uploadedDocs: uploadedDocsCount,
+              totalDocs: totalDocsRequired,
+              isComplete: missingDocs.length === 0 && uploadedDocsCount > 0
+            };
+          });
+          
+          return {
+            ...candidate,
+            services: servicesWithStatus
+          };
+        } catch (error) {
+          console.error(`Error processing candidate ${candidate._id}:`, error);
+          // If there's an error, return the candidate with basic service info
+          return {
+            ...candidate,
+            services: candidate.services.map(serviceId => ({
+              id: serviceId,
+              name: serviceMap[serviceId]?.Service_Title || `บริการ #${serviceId}`,
+              error: true
+            }))
+          };
+        }
       }));
+      
+      orderData.candidates = candidatesWithServices;
     }
     
     return orderData;
@@ -279,6 +331,199 @@ export async function deleteOrder(orderId) {
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการลบคำสั่งซื้อ',
+      error
+    };
+  }
+}
+
+/**
+ * ดึงข้อมูลเอกสารที่ต้องการแต่ยังไม่ได้อัปโหลดของผู้สมัคร
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @returns {Promise<Object>} ข้อมูลเอกสารที่ยังขาดของผู้สมัคร
+ */
+export async function getMissingDocuments(candidateId) {
+  return apiCall('get', `/api/documents/candidate/${candidateId}/missing`);
+}
+
+/**
+ * ดึงข้อมูลเอกสารที่อัปโหลดแล้วของผู้สมัคร
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @returns {Promise<Object>} ข้อมูลเอกสารที่อัปโหลดแล้วของผู้สมัคร
+ */
+export async function getUploadedDocuments(candidateId) {
+  return apiCall('get', `/api/documents/candidate/${candidateId}/documents`);
+}
+
+/**
+ * อัปโหลดเอกสาร
+ * @param {FormData} formData ข้อมูลเอกสารพร้อมไฟล์ (FormData)
+ * @returns {Promise<Object>} ผลลัพธ์การอัปโหลดเอกสาร
+ */
+export async function uploadDocument(formData) {
+  try {
+    // สร้าง instance ของ axios สำหรับอัปโหลดไฟล์
+    const token = Cookies.get('access_token');
+    const api = axios.create({
+      baseURL: process.env.API_URL,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      },
+      withCredentials: true,
+      timeout: 60000 // เพิ่ม timeout เป็น 60 วินาที เพราะอัปโหลดไฟล์อาจใช้เวลานาน
+    });
+    
+    console.log('🔄 API Call: POST /api/documents/upload');
+    console.time('API POST /api/documents/upload');
+    
+    const response = await api.post('/api/documents/upload', formData);
+    
+    console.timeEnd('API POST /api/documents/upload');
+    console.log('✅ API Success: POST /api/documents/upload', response.data);
+    
+    return {
+      success: true,
+      message: 'อัปโหลดเอกสารสำเร็จ',
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปโหลดเอกสาร',
+      error
+    };
+  }
+}
+
+/**
+ * อัปโหลดเอกสารทั้งหมดพร้อมกัน
+ * @param {Object} data ข้อมูลและไฟล์ทั้งหมดที่ต้องการอัปโหลด
+ * @returns {Promise<Object>} ผลลัพธ์การอัปโหลดเอกสารทั้งหมด
+ */
+export async function uploadDocuments(data) {
+  // ถ้าไม่มีไฟล์ให้อัปโหลด
+  if (!data || !data.files || Object.keys(data.files).length === 0) {
+    return {
+      success: false,
+      message: 'ไม่มีไฟล์ให้อัปโหลด'
+    };
+  }
+  
+  try {
+    // สร้าง array ของ promises สำหรับอัปโหลดแต่ละไฟล์
+    const uploadPromises = Object.keys(data.files).map(key => {
+      // ข้ามไฟล์ที่เป็น null
+      if (!data.files[key]) return null;
+      
+      // แยกข้อมูลเกี่ยวกับไฟล์ (รูปแบบของ key คือ 'ServiceName_docId')
+      const [serviceName, docId] = key.split('_');
+      const serviceId = data.serviceIds[serviceName];
+      
+      // สร้าง FormData สำหรับแต่ละไฟล์
+      const formData = new FormData();
+      formData.append('file', data.files[key]); // ไฟล์ที่จะอัปโหลด
+      formData.append('candidateId', data.candidateId);
+      formData.append('serviceId', serviceId);
+      formData.append('documentType', docId);
+      
+      // อัปโหลดไฟล์
+      return uploadDocument(formData);
+    }).filter(p => p !== null); // กรองเอาเฉพาะ promises ที่ไม่ใช่ null
+    
+    // รอให้การอัปโหลดทั้งหมดเสร็จสิ้น
+    const results = await Promise.all(uploadPromises);
+    
+    // ตรวจสอบว่ามีการอัปโหลดที่ล้มเหลวหรือไม่
+    const failedUploads = results.filter(result => !result.success);
+    
+    if (failedUploads.length > 0) {
+      return {
+        success: false,
+        message: `มีเอกสาร ${failedUploads.length} รายการที่อัปโหลดไม่สำเร็จ`,
+        details: failedUploads
+      };
+    }
+    
+    return {
+      success: true,
+      message: `อัปโหลดเอกสารทั้งหมด ${results.length} รายการสำเร็จ`,
+      results
+    };
+  } catch (error) {
+    console.error('Error uploading documents:', error);
+    return {
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการอัปโหลดเอกสาร',
+      error
+    };
+  }
+}
+
+export async function updateOrderToProcessing(orderId) {
+  try {
+    // เนื่องจากไม่มี API endpoint สำหรับผู้ใช้ทั่วไปในการเปลี่ยนสถานะโดยตรง
+    // เราจึงสร้าง API endpoint พิเศษสำหรับการอัพเดทสถานะหลังจากอัปโหลดเอกสารครบแล้ว
+    const result = await apiCall('put', `/api/orders/${orderId}/complete-documents`, {
+      status: 'processing'
+    });
+    
+    return {
+      success: true,
+      message: 'อัปเดตสถานะคำสั่งซื้อสำเร็จ',
+      data: result
+    };
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปเดตสถานะคำสั่งซื้อ',
+      error
+    };
+  }
+}
+/**
+ * ลบเอกสาร
+ * @param {string} documentId รหัสเอกสาร
+ * @returns {Promise<Object>} ผลลัพธ์การลบเอกสาร
+ */
+export async function deleteDocument(documentId) {
+  try {
+    await apiCall('delete', `/api/documents/${documentId}`);
+    
+    return {
+      success: true,
+      message: 'ลบเอกสารสำเร็จ'
+    };
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการลบเอกสาร',
+      error
+    };
+  }
+}
+
+/**
+ * ยืนยันเอกสาร (สำหรับ Admin)
+ * @param {string} documentId รหัสเอกสาร
+ * @returns {Promise<Object>} ผลลัพธ์การยืนยันเอกสาร
+ */
+export async function verifyDocument(documentId) {
+  try {
+    const result = await apiCall('post', `/api/documents/${documentId}/verify`);
+    
+    return {
+      success: true,
+      message: 'ยืนยันเอกสารสำเร็จ',
+      data: result
+    };
+  } catch (error) {
+    console.error('Error verifying document:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการยืนยันเอกสาร',
       error
     };
   }

@@ -104,8 +104,8 @@ const handleConfirmPayment = async (e) => {
   
   try {
     // ตรวจสอบข้อมูลที่จำเป็น
-    if (!transferInfo.name || !transferInfo.date || !transferInfo.amount) {
-      throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+    if (!transferInfo.name || !transferInfo.date || !transferInfo.amount || !transferInfo.reference || !transferInfo.receipt) {
+      throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน และอัปโหลดสลิปการโอนเงิน');
     }
     
     // สร้าง FormData สำหรับส่งข้อมูลพร้อมไฟล์
@@ -119,17 +119,12 @@ const handleConfirmPayment = async (e) => {
     formData.append('transferInfo.name', transferInfo.name);
     formData.append('transferInfo.date', transferInfo.date);
     formData.append('transferInfo.amount', transferInfo.amount);
-    if (transferInfo.reference) {
-      formData.append('transferInfo.reference', transferInfo.reference);
-    }
+    formData.append('transferInfo.reference', transferInfo.reference);
     
-    // เพิ่มไฟล์สลิป (ถ้ามี)
+    // เพิ่มไฟล์สลิป
     if (transferInfo.receipt) {
       formData.append('receipt', transferInfo.receipt);
     }
-    
-    // ลบฟังก์ชัน uploadReceipt เพราะไม่จำเป็นต้องใช้แล้ว
-    // เราส่งไฟล์ไปยัง API โดยตรงผ่าน FormData
     
     // ใช้ฟังก์ชัน updatePayment จาก apiService
     const result = await updatePayment(orderId, formData);
@@ -388,7 +383,8 @@ const handleConfirmPayment = async (e) => {
             
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-medium mb-2">
-                {paymentMethod === 'qr_payment' ? 'รหัสอ้างอิง (ถ้ามี)' : 'เลขที่บัญชี 4 ตัวท้าย'}
+                {paymentMethod === 'qr_payment' ? 'รหัสอ้างอิง' : 'เลขที่บัญชี 4 ตัวท้าย'}
+                <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -396,16 +392,21 @@ const handleConfirmPayment = async (e) => {
                 onChange={(e) => handleTransferInfoChange('reference', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder={paymentMethod === 'qr_payment' ? "รหัสอ้างอิง" : "4 ตัวท้าย เช่น 1234"}
+                required
               />
             </div>
             
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">อัปโหลดสลิป (ถ้ามี)</label>
+              <label className="block text-gray-700 text-sm font-medium mb-2">
+                อัปโหลดสลิป
+                <span className="text-red-500">*</span>
+              </label>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleReceiptUpload}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
               />
               
               {transferInfo.receiptPreview && (
