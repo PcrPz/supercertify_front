@@ -14,7 +14,7 @@ import {
 export default function DashboardPage() {
   const [certifications, setCertifications] = useState([
     { id: 'BGC1568022', startDate: '03 กุมภาพันธ์ 2025', endDate: '30 มีนาคม 2025', status: 'กำลัง' },
-    { id: 'BGC1568022', startDate: '03 กุมภาพันธ์ 2025', endDate: '', status: 'รอดำเนินการ' },
+    { id: 'BGC1568022', startDate: '03 กุมภาพันธ์ 2025', endDate: '', status: 'รอการตรวจสอบการชำระเงิน' },
     { id: 'BGC1568022', startDate: '03 กุมภาพันธ์ 2025', endDate: '', status: 'ไม่สำเร็จ' },
     { id: 'BGC1568022', startDate: '03 กุมภาพันธ์ 2025', endDate: '30 มีนาคม 2025', status: 'กำลัง' },
     { id: 'BGC1568022', startDate: '03 กุมภาพันธ์ 2025', endDate: '', status: 'รอดำเนินการ' },
@@ -126,7 +126,7 @@ export default function DashboardPage() {
                   <td className="py-4 px-6">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       cert.status === 'กำลัง' ? 'bg-yellow-100 text-yellow-800' :
-                      cert.status === 'รอดำเนินการ' ? 'bg-blue-100 text-blue-800' :
+                      cert.status === 'รอการตรวจสอบการชำระเงิน' ? 'bg-blue-100 text-blue-800' :
                       'bg-red-100 text-red-800'
                     }`}>
                       {cert.status}

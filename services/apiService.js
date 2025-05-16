@@ -528,3 +528,88 @@ export async function verifyDocument(documentId) {
     };
   }
 }
+
+
+/**
+ * ค้นหาข้อมูลการตรวจสอบประวัติด้วย Tracking Number
+ * @param {string} trackingNumber รหัสติดตามการตรวจสอบประวัติ
+ * @returns {Promise<Object>} ข้อมูลการตรวจสอบประวัติ
+ */
+export async function trackOrderByTrackingNumber(trackingNumber) {
+  try {
+    // ใช้ endpoint ที่ไม่ต้องการการยืนยันตัวตน
+    // ไม่ต้องใช้ token เนื่องจากเป็น public API
+    const axios = require('axios');
+    const instance = axios.create({
+      baseURL: process.env.API_URL || 'http://localhost:3500', // ใช้ค่าเริ่มต้นหากไม่มี env
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 15000
+    });
+
+    console.log(`🔄 Public API Call: GET /api/orders/public/track/${trackingNumber}`);
+    console.time(`Public API GET /api/orders/public/track/${trackingNumber}`);
+    
+    const response = await instance.get(`/api/orders/public/track/${trackingNumber}`);
+    
+    console.timeEnd(`Public API GET /api/orders/public/track/${trackingNumber}`);
+    console.log(`✅ Public API Success: GET /api/orders/public/track/${trackingNumber}`, response.data);
+    
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`❌ Error tracking order with number ${trackingNumber}:`, error);
+    
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่พบข้อมูลการตรวจสอบประวัติตามรหัสที่ระบุ',
+      error
+    };
+  }
+}
+
+/**
+ * อัปโหลดไฟล์ผลการตรวจสอบให้กับ Candidate
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @param {FormData} formData ข้อมูลผลการตรวจสอบพร้อมไฟล์ (FormData)
+ * @returns {Promise<Object>} ผลลัพธ์การอัปโหลดผลการตรวจสอบ
+ */
+export async function uploadResultFile(candidateId, formData) {
+  try {
+    // สร้าง instance ของ axios สำหรับอัปโหลดไฟล์
+    const token = Cookies.get('access_token');
+    const api = axios.create({
+      baseURL: process.env.API_URL,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      },
+      withCredentials: true,
+      timeout: 60000 // เพิ่ม timeout เป็น 60 วินาที เพราะอัปโหลดไฟล์อาจใช้เวลานาน
+    });
+    
+    console.log(`🔄 API Call: POST /api/candidates/${candidateId}/upload-result`);
+    console.time(`API POST /api/candidates/${candidateId}/upload-result`);
+    
+    const response = await api.post(`/api/candidates/${candidateId}/upload-result`, formData);
+    
+    console.timeEnd(`API POST /api/candidates/${candidateId}/upload-result`);
+    console.log(`✅ API Success: POST /api/candidates/${candidateId}/upload-result`, response.data);
+    
+    return {
+      success: true,
+      message: 'อัปโหลดผลการตรวจสอบสำเร็จ',
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error uploading result file:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปโหลดผลการตรวจสอบ',
+      error
+    };
+  }
+}
