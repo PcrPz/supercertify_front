@@ -302,7 +302,18 @@ export async function updatePaymentStatus(paymentId, statusData) {
     };
   }
 }
-
+/**
+ * ดึงข้อมูลคำสั่งซื้อของผู้ใช้ปัจจุบัน
+ * @returns {Promise<Array>} รายการคำสั่งซื้อของผู้ใช้ปัจจุบัน
+ */
+export async function getMyOrders() {
+  try {
+    return apiCall('get', '/api/orders/my-orders');
+  } catch (error) {
+    console.error('Error fetching my orders:', error);
+    throw error;
+  }
+}
 /**
  * ตรวจสอบสถานะการชำระเงิน
  * @param {string} orderId รหัสคำสั่งซื้อ
