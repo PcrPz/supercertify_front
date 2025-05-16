@@ -375,7 +375,7 @@ export default function PaymentSuccessPage() {
         </button>
         
         <button 
-          onClick={() => paymentStatus === 'completed' ? router.push('/background-check/drop-document') : router.push('/background-check/dashboard')}
+          onClick={() => paymentStatus === 'completed' ? router.push(`/background-check/drop-document/${orderId}`) : router.push('/background-check/dashboard')}
           className="bg-[#444DDA] hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium"
         >
           {paymentStatus === 'completed' ? 'Drop Document' : 'Go to Dashboard'}

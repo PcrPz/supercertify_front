@@ -13,6 +13,8 @@ export default function PaymentManagement() {
   const [viewMode, setViewMode] = useState('list'); // 'list' หรือ 'detail'
   const [processing, setProcessing] = useState(false);
   const [filterStatus, setFilterStatus] = useState('pending_verification');
+  const [zoomedImage, setZoomedImage] = useState(null);
+
   
   // โหลดรายการคำสั่งซื้อ
   useEffect(() => {
@@ -33,6 +35,16 @@ export default function PaymentManagement() {
     fetchOrders();
   }, []);
   
+  const handleImageZoom = (imageUrl) => {
+    setZoomedImage(imageUrl === zoomedImage ? null : imageUrl);
+  };
+
+  const handleCloseZoom = (e) => {
+    if (e.target.tagName !== 'IMG') {
+      setZoomedImage(null);
+    }
+  };
+
   // ดูรายละเอียดคำสั่งซื้อ
   const viewOrderDetail = async (orderId) => {
     try {
@@ -485,19 +497,45 @@ export default function PaymentManagement() {
                   </p>
                 </div>
               
-                {/* แสดงรูปสลิปการโอนเงิน (ถ้ามี) */}
-                {selectedOrder.payment?.transferInfo?.receiptUrl && (
-                  <div className="col-span-2 mt-4 border-t border-gray-100 pt-4">
-                    <p className="text-sm text-gray-600 mb-2">สลิปการโอนเงิน:</p>
-                    <div className="border border-gray-200 rounded-lg p-2 max-w-xs">
-                      <img 
-                        src={selectedOrder.payment.transferInfo.receiptUrl} 
-                        alt="สลิปการโอนเงิน" 
-                        className="max-h-60 mx-auto"
-                      />
-                    </div>
-                  </div>
-                )}
+              {/* แสดงรูปสลิปการโอนเงิน (ถ้ามี) */}
+              {selectedOrder.payment?.transferInfo?.receiptUrl && (
+              <div className="col-span-2 mt-4 border-t border-gray-100 pt-4">
+                <p className="text-sm text-gray-600 mb-2">สลิปการโอนเงิน:</p>
+                <div className="border border-gray-200 rounded-lg p-2 max-w-xs">
+                  <img 
+                    src={selectedOrder.payment.transferInfo.receiptUrl} 
+                    alt="สลิปการโอนเงิน" 
+                    className="max-h-60 mx-auto cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => handleImageZoom(selectedOrder.payment.transferInfo.receiptUrl)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Modal สำหรับแสดงรูปภาพขนาดใหญ่ */}
+            {zoomedImage && (
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
+                onClick={handleCloseZoom}
+              >
+                <div className="relative max-w-4xl max-h-screen p-4">
+                  <button
+                    className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg text-gray-800 hover:bg-gray-200 transition-colors"
+                    onClick={() => setZoomedImage(null)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <img 
+                    src={zoomedImage} 
+                    alt="สลิปการโอนเงิน (ขยาย)" 
+                    className="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+            )}
               </div>
             ) : (
               <div className="py-4 text-center text-gray-500">

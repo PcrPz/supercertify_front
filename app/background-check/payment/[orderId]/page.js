@@ -97,75 +97,64 @@ export default function PaymentPage() {
     });
   };
   
-  // จัดการการส่งข้อมูลการชำระเงิน
-  const handleConfirmPayment = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    try {
-      // ตรวจสอบข้อมูลที่จำเป็น
-      if (!transferInfo.name || !transferInfo.date || !transferInfo.amount) {
-        throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
-      }
-      
-      // ถ้ามีการอัปโหลดสลิป ให้อัปโหลดไปยังเซิร์ฟเวอร์และรับ URL
-      let receiptUrl = null;
-      if (transferInfo.receipt) {
-        receiptUrl = await uploadReceipt(transferInfo.receipt);
-      }
-      
-      // สร้างข้อมูลการชำระเงิน - ไม่รวม timestamp
-      const paymentData = {
-        paymentMethod: paymentMethod,
-        transferInfo: {
-          name: transferInfo.name,
-          date: transferInfo.date,
-          amount: transferInfo.amount,
-          reference: transferInfo.reference,
-          receiptUrl: receiptUrl
-        }
-      };
-      
-      console.log('Sending payment data:', paymentData); // เพิ่ม log เพื่อตรวจสอบข้อมูล
-      
-      // ส่งข้อมูลการชำระเงินไปยัง API
-      const result = await updatePayment(orderId, paymentData);
-      
-      if (result.success) {
-        // ส่งอีเมลแจ้งเตือนแอดมิน
-        try {
-          const orderData = await getOrderById(orderId);
-          await sendPaymentNotificationToAdmin(orderData);
-          
-          // เพิ่มการหน่วงเวลา 2 วินาที เพื่อให้ข้อมูลถูกบันทึกสมบูรณ์
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // ตรวจสอบว่าข้อมูลการชำระเงินถูกบันทึกถูกต้องหรือไม่
-          const verifyOrder = await getOrderById(orderId);
-          if (!verifyOrder || !verifyOrder.payment) {
-            console.log('Payment data not found, waiting more time...');
-            // หากยังไม่พบข้อมูลการชำระเงิน ให้รอเพิ่มอีก 3 วินาที
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          }
-          
-          // ไปยังหน้าแสดงผลการชำระเงิน
-          router.push(`/background-check/payment-success?orderId=${orderId}`);
-        } catch (emailError) {
-          console.error('Failed to verify payment:', emailError);
-          // แม้จะเกิดข้อผิดพลาดในการตรวจสอบ ก็ยังให้ไปยังหน้าถัดไป
-          window.location.href = `/background-check/payment-success?orderId=${orderId}`;
-
-        }
-      } else {
-        throw new Error(result.message || 'การชำระเงินล้มเหลว');
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      alert(`เกิดข้อผิดพลาดในการส่งข้อมูลชำระเงิน: ${error.message}`);
-    } finally {
-      setIsSubmitting(false);
+// จัดการการส่งข้อมูลการชำระเงิน
+const handleConfirmPayment = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  
+  try {
+    // ตรวจสอบข้อมูลที่จำเป็น
+    if (!transferInfo.name || !transferInfo.date || !transferInfo.amount || !transferInfo.reference || !transferInfo.receipt) {
+      throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน และอัปโหลดสลิปการโอนเงิน');
     }
-  };
+    
+    // สร้าง FormData สำหรับส่งข้อมูลพร้อมไฟล์
+    const formData = new FormData();
+    
+    // เพิ่มข้อมูลการชำระเงิน
+    formData.append('paymentMethod', paymentMethod);
+    formData.append('orderId', orderId);
+    
+    // เพิ่มข้อมูลการโอนเงิน
+    formData.append('transferInfo.name', transferInfo.name);
+    formData.append('transferInfo.date', transferInfo.date);
+    formData.append('transferInfo.amount', transferInfo.amount);
+    formData.append('transferInfo.reference', transferInfo.reference);
+    
+    // เพิ่มไฟล์สลิป
+    if (transferInfo.receipt) {
+      formData.append('receipt', transferInfo.receipt);
+    }
+    
+    // ใช้ฟังก์ชัน updatePayment จาก apiService
+    const result = await updatePayment(orderId, formData);
+    
+    if (result.success) {
+      // ส่งอีเมลแจ้งเตือนแอดมิน
+      try {
+        const orderData = await getOrderById(orderId);
+        await sendPaymentNotificationToAdmin(orderData);
+        
+        // เพิ่มการหน่วงเวลา 2 วินาที เพื่อให้ข้อมูลถูกบันทึกสมบูรณ์
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // ไปยังหน้าแสดงผลการชำระเงิน
+        router.push(`/background-check/payment-success?orderId=${orderId}`);
+      } catch (emailError) {
+        console.error('Failed to verify payment:', emailError);
+        // แม้จะเกิดข้อผิดพลาดในการตรวจสอบ ก็ยังให้ไปยังหน้าถัดไป
+        window.location.href = `//background-check/payment-success?orderId=${orderId}`;
+      }
+    } else {
+      throw new Error(result.message || 'การชำระเงินล้มเหลว');
+    }
+  } catch (error) {
+    console.error('Payment error:', error);
+    alert(`เกิดข้อผิดพลาดในการส่งข้อมูลชำระเงิน: ${error.message}`);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   
   // หน้าโหลดข้อมูล
   if (loading) {
@@ -394,7 +383,8 @@ export default function PaymentPage() {
             
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-medium mb-2">
-                {paymentMethod === 'qr_payment' ? 'รหัสอ้างอิง (ถ้ามี)' : 'เลขที่บัญชี 4 ตัวท้าย'}
+                {paymentMethod === 'qr_payment' ? 'รหัสอ้างอิง' : 'เลขที่บัญชี 4 ตัวท้าย'}
+                <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -402,16 +392,21 @@ export default function PaymentPage() {
                 onChange={(e) => handleTransferInfoChange('reference', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder={paymentMethod === 'qr_payment' ? "รหัสอ้างอิง" : "4 ตัวท้าย เช่น 1234"}
+                required
               />
             </div>
             
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">อัปโหลดสลิป (ถ้ามี)</label>
+              <label className="block text-gray-700 text-sm font-medium mb-2">
+                อัปโหลดสลิป
+                <span className="text-red-500">*</span>
+              </label>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleReceiptUpload}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
               />
               
               {transferInfo.receiptPreview && (
