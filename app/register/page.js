@@ -8,12 +8,24 @@ const Register = () => {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState(''); // เพิ่ม state สำหรับเบอร์โทรศัพท์
+    const [companyName, setCompanyName] = useState(''); // เพิ่ม state สำหรับชื่อบริษัท
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     
     const router = useRouter();
   
+    // เพิ่มฟังก์ชันสำหรับตรวจสอบเบอร์โทรศัพท์ให้รับแค่ตัวเลขเท่านั้น
+    const handlePhoneNumberChange = (e) => {
+      const value = e.target.value;
+      // อนุญาตให้กรอกได้เฉพาะตัวเลขและจำกัดความยาวไม่เกิน 10 หลัก
+      const numericValue = value.replace(/\D/g, '');
+      if (numericValue.length <= 10) {
+        setPhoneNumber(numericValue);
+      }
+    };
+    
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
@@ -24,6 +36,8 @@ const Register = () => {
           username,
           email,
           password,
+          phoneNumber, // เพิ่มเบอร์โทรศัพท์ในข้อมูลที่ส่งไป API
+          companyName, // เพิ่มชื่อบริษัทในข้อมูลที่ส่งไป API
           role: 'user'
         };
         
@@ -101,6 +115,49 @@ const Register = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
                     <rect x="2" y="4" width="20" height="16" rx="2"></rect>
                     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                  </svg>
+                </div>
+              </div>
+              
+              {/* เพิ่มฟิลด์เบอร์โทรศัพท์ และจำกัดให้รับเฉพาะตัวเลข 10 หลัก */}
+              <div className="relative">
+                <input
+                  type="tel"
+                  id="phoneNumber"
+                  value={phoneNumber}
+                  onChange={handlePhoneNumberChange}
+                  className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Phone Number (10 digits)"
+                  pattern="[0-9]{10}"
+                  maxLength="10"
+                  minLength="10"
+                  required
+                  disabled={loading}
+                  inputMode="numeric"
+                />
+                <div className="absolute right-4 top-3.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                  </svg>
+                </div>
+              </div>
+              
+              {/* เพิ่มฟิลด์ชื่อบริษัท */}
+              <div className="relative">
+                <input
+                  type="text"
+                  id="companyName"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-full border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Company Name"
+                  required
+                  disabled={loading}
+                />
+                <div className="absolute right-4 top-3.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
                   </svg>
                 </div>
               </div>
