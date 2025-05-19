@@ -363,7 +363,7 @@ const handleSubmitService = async (serviceId) => {
               {service.documents.map((doc) => (
                 <div key={doc.id} className="flex flex-col bg-white p-4 rounded-lg shadow-sm">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-medium">{doc.name}</h3>
+                    <h3 className="text-[16px] font-medium">{doc.name}</h3>
                     {doc.required && (
                       <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Required</span>
                     )}
