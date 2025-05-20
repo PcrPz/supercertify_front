@@ -1,6 +1,8 @@
 // services/apiService.js
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { sendCompletedResultsNotification } from './emailService';
+
 
 // สร้าง instance ของ axios พร้อมกำหนดค่าเริ่มต้น
 const createApiInstance = () => {
@@ -586,9 +588,10 @@ export async function trackOrderByTrackingNumber(trackingNumber) {
  * อัปโหลดไฟล์ผลการตรวจสอบให้กับ Candidate
  * @param {string} candidateId รหัสผู้สมัคร
  * @param {FormData} formData ข้อมูลผลการตรวจสอบพร้อมไฟล์ (FormData)
+ * @param {string} orderId รหัสคำสั่งซื้อ (ส่งมาเพื่อตรวจสอบการอัปโหลดครบ)
  * @returns {Promise<Object>} ผลลัพธ์การอัปโหลดผลการตรวจสอบ
  */
-export async function uploadResultFile(candidateId, formData) {
+export async function uploadResultFile(candidateId, formData, orderId = null) {
   try {
     // สร้าง instance ของ axios สำหรับอัปโหลดไฟล์
     const token = Cookies.get('access_token');
@@ -599,16 +602,23 @@ export async function uploadResultFile(candidateId, formData) {
         'Authorization': `Bearer ${token}`
       },
       withCredentials: true,
-      timeout: 60000 // เพิ่ม timeout เป็น 60 วินาที เพราะอัปโหลดไฟล์อาจใช้เวลานาน
+      timeout: 60000
     });
     
-    console.log(`🔄 API Call: POST /api/candidates/${candidateId}/upload-result`);
-    console.time(`API POST /api/candidates/${candidateId}/upload-result`);
-    
+    console.log(`🔄 Making API call: POST /api/candidates/${candidateId}/upload-result`);
     const response = await api.post(`/api/candidates/${candidateId}/upload-result`, formData);
+    console.log(`✅ API call successful:`, response.data);
     
-    console.timeEnd(`API POST /api/candidates/${candidateId}/upload-result`);
-    console.log(`✅ API Success: POST /api/candidates/${candidateId}/upload-result`, response.data);
+    if (orderId) {
+      console.log(`Checking if all results are uploaded for order ${orderId}`);
+      try {
+        await checkAndNotifyIfAllResultsUploaded(orderId);
+      } catch (error) {
+        console.error(`Error checking/notifying for order ${orderId}:`, error);
+      }
+    } else {
+      console.log(`Skip checking - no orderId provided`);
+    }
     
     return {
       success: true,
@@ -620,6 +630,135 @@ export async function uploadResultFile(candidateId, formData) {
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปโหลดผลการตรวจสอบ',
+      error
+    };
+  }
+}
+
+/**
+ * ตรวจสอบว่าคำสั่งซื้อมีการอัปโหลดผลการตรวจสอบครบทุกคนหรือยัง
+ * ถ้าครบแล้วจะอัปเดตสถานะคำสั่งซื้อและส่งอีเมลแจ้งเตือนไปยังลูกค้า
+ * @param {string} orderId รหัสคำสั่งซื้อ
+ * @returns {Promise<boolean>} ผลการตรวจสอบ
+ */
+export async function checkAndNotifyIfAllResultsUploaded(orderId) {
+  console.log(`📋 Checking results for order ${orderId}`);
+  
+  try {
+    // 1. ดึงข้อมูลคำสั่งซื้อล่าสุดพร้อมกับข้อมูล candidates
+    console.log(`🔍 Fetching order data for ${orderId}`);
+    const order = await getOrderById(orderId);
+    
+    if (!order) {
+      console.error(`❌ Order ${orderId} not found`);
+      return false;
+    }
+    
+    if (!order.candidates || order.candidates.length === 0) {
+      console.log(`⚠️ No candidates found for order ${orderId}`);
+      return false;
+    }
+    
+    console.log(`ℹ️ Order ${orderId} has ${order.candidates.length} candidates`);
+    
+    // 2. ตรวจสอบว่ามีผลการตรวจสอบสำหรับทุกคนหรือไม่
+    const totalCandidates = order.candidates.length;
+    const candidatesWithResults = order.candidates.filter(c => c.result !== null);
+    const completedResults = candidatesWithResults.length;
+    
+    console.log(`ℹ️ Order ${orderId}: ${completedResults}/${totalCandidates} candidates have results`);
+    
+    // แสดงสถานะของแต่ละ candidate
+    order.candidates.forEach((c, index) => {
+      console.log(`ℹ️ Candidate #${index+1}: ${c.C_FullName} - Result: ${c.result ? 'YES' : 'NO'}`);
+    });
+    
+    // 3. ตรวจสอบว่ายังอัปโหลดไม่ครบ
+    if (completedResults < totalCandidates) {
+      console.log(`⏳ Still need ${totalCandidates - completedResults} more results for order ${orderId}`);
+      return false;
+    }
+    
+    // 4. ถ้าครบทุกคนแล้ว
+    console.log(`✅ All ${totalCandidates} candidates have results for order ${orderId}`);
+    
+    // 5. แปลงข้อมูลผลการตรวจสอบให้อยู่ในรูปแบบที่เหมาะกับการส่งอีเมล
+    const results = order.candidates.map(candidate => ({
+      candidateName: candidate.C_FullName,
+      candidateEmail: candidate.C_Email,
+      resultStatus: candidate.result ? candidate.result.resultStatus : 'unknown',
+      resultNotes: candidate.result ? candidate.result.resultNotes : '',
+      resultDate: candidate.result ? candidate.result.createdAt : new Date()
+    }));
+    
+    console.log(`📊 Prepared result data for ${results.length} candidates`);
+    
+    // 6. อัปเดตสถานะคำสั่งซื้อเป็น 'completed' ถ้ายังไม่ได้อัปเดต
+    if (order.OrderStatus !== 'completed') {
+      console.log(`📝 Updating order status to 'completed' for order ${orderId}`);
+      try {
+        const updateResult = await updateOrderStatus(orderId, 'completed');
+        console.log(`✅ Order status updated:`, updateResult);
+      } catch (updateError) {
+        console.error(`❌ Error updating order status:`, updateError);
+        // ทำงานต่อไปแม้จะอัพเดตสถานะไม่สำเร็จ
+      }
+    } else {
+      console.log(`ℹ️ Order ${orderId} already has 'completed' status`);
+    }
+    
+    // 7. ส่งอีเมลแจ้งเตือนไปยังลูกค้า
+    console.log(`📧 Sending email notification for order ${orderId}`);
+    
+    // ตรวจสอบข้อมูลที่จำเป็นก่อนส่งอีเมล
+    if (!order.user || !order.user.email) {
+      console.error(`❌ Customer email not found in order ${orderId}`);
+      return false;
+    }
+    
+    try {
+      const emailResult = await sendCompletedResultsNotification(order, results);
+      console.log(`📧 Email notification result:`, emailResult);
+      
+      if (emailResult) {
+        console.log(`✅ Email notification sent successfully`);
+      } else {
+        console.error(`❌ Failed to send email notification`);
+      }
+    } catch (emailError) {
+      console.error(`❌ Error sending email notification:`, emailError);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`❌ Error checking order completion for ${orderId}:`, error);
+    return false;
+  }
+}
+
+
+
+
+/**
+ * อัปเดตสถานะของคำสั่งซื้อ
+ * @param {string} orderId รหัสคำสั่งซื้อ
+ * @param {string} status สถานะใหม่ ('awaiting_payment', 'pending_verification', 'payment_verified', 'processing', 'completed', 'cancelled')
+ * @returns {Promise<Object>} ผลลัพธ์การอัปเดตสถานะ
+ */
+export async function updateOrderStatus(orderId, status) {
+  try {
+    const response = await apiCall('put', `/api/orders/${orderId}/status`, { status });
+    
+    return {
+      success: true,
+      message: 'อัปเดตสถานะคำสั่งซื้อสำเร็จ',
+      data: response
+    };
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปเดตสถานะคำสั่งซื้อ',
       error
     };
   }

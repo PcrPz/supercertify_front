@@ -74,3 +74,71 @@ export async function sendPaymentApprovedToUser(order) {
     return false;
   }
 }
+
+/**
+ * ส่งอีเมลแจ้งเตือนลูกค้าเมื่อผลการตรวจสอบทั้งหมดเสร็จสิ้น
+ * @param {Object} order ข้อมูลคำสั่งซื้อ
+ * @param {Array} results ข้อมูลผลการตรวจสอบทั้งหมด
+ * @returns {Promise<boolean>} ผลการส่งอีเมล
+ */
+export async function sendCompletedResultsNotification(order, results) {
+  console.log(`📧 [sendCompletedResultsNotification] Starting for order ${order.TrackingNumber}`);
+  
+  // ตรวจสอบข้อมูลที่จำเป็น
+  if (!order.user || !order.user.email) {
+    console.error(`❌ [sendCompletedResultsNotification] Missing user.email`);
+    return false;
+  }
+  
+  if (!order.TrackingNumber) {
+    console.error(`❌ [sendCompletedResultsNotification] Missing TrackingNumber`);
+    return false;
+  }
+  
+  try {
+    // สร้าง resultSummary
+    const resultSummary = {
+      total: results.length,
+      passed: results.filter(r => r.resultStatus === 'pass').length,
+      failed: results.filter(r => r.resultStatus === 'fail').length,
+      pending: results.filter(r => r.resultStatus === 'pending').length
+    };
+    
+    // เตรียมข้อมูลสำหรับส่งอีเมล
+    const emailPayload = {
+      trackingNumber: order.TrackingNumber,
+      customerEmail: order.user.email,
+      customerName: order.user.name || order.user.username,
+      totalPrice: order.TotalPrice,
+      orderId: order._id,
+      results: results,
+      resultSummary: resultSummary
+    };
+    
+    console.log(`📧 [sendCompletedResultsNotification] Sending to ${emailPayload.customerEmail}`);
+    
+    // เรียกใช้ API Route
+    const response = await fetch('/api/email/results-completed', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(emailPayload),
+    });
+    
+    console.log(`📧 [sendCompletedResultsNotification] API response status: ${response.status}`);
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      console.error(`❌ [sendCompletedResultsNotification] API error:`, result);
+      return false;
+    }
+    
+    console.log(`✅ [sendCompletedResultsNotification] Email sent successfully`);
+    return true;
+  } catch (error) {
+    console.error(`❌ [sendCompletedResultsNotification] Error:`, error);
+    return false;
+  }
+}
