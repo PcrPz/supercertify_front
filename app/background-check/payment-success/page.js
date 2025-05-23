@@ -198,7 +198,7 @@ export default function PaymentSuccessPage() {
   return (
     <div className="container max-w-5xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6 mt-2 ml-2">
-        {paymentStatus === 'completed' ? 'Complete Payment' : 'Payment Verified'}
+        {paymentStatus === 'completed' ? 'Complete Payment' : 'รอการตรวจสอบการชำระเงิน'}
       </h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-6">

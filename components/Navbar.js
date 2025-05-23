@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronDown, LayoutDashboard, UserCircle, Bell, LogOut, Settings, Users, CreditCard, Shield } from 'lucide-react';
+import { ChevronDown, LayoutDashboard, UserCircle, Bell, LogOut, Settings, Users, CreditCard, Shield, Gift, Percent } from 'lucide-react';
 import LogoutButton from './LogoutButton';
 
 // User Dropdown Component
@@ -87,6 +87,14 @@ const UserDropdown = ({ user }) => {
                   User Management
                 </Link>
                 <Link 
+                  href="/admin/coupon-management" 
+                  className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Percent className="w-5 h-5 mr-3 text-[#444DDA]" />
+                  Coupon Management
+                </Link>
+                <Link 
                   href="/admin/payments" 
                   className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
@@ -121,6 +129,14 @@ const UserDropdown = ({ user }) => {
                 >
                   <UserCircle className="w-5 h-5 mr-3 text-green-500" />
                   Edit Profile
+                </Link>
+                <Link 
+                  href="/coupon" 
+                  className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Gift className="w-5 h-5 mr-3 text-[#444DDA]" />
+                  My Coupons
                 </Link>
                 <Link 
                   href="/notifications" 
@@ -197,6 +213,18 @@ export default function Navbar({ user, activePath }) {
                   Orders
                   {isActiveLink('/admin/orders') && (
                     <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-red-600"></span>
+                  )}
+                </Link>
+                <Link 
+                  href="/admin/coupon-management" 
+                  className={`text-gray-700 hover:text-[#444DDA] relative 
+                    ${isActiveLink('/admin/coupon-management') 
+                      ? 'text-[#444DDA] font-semibold' 
+                      : ''}`}
+                >
+                  Coupons
+                  {isActiveLink('/admin/coupon-management') && (
+                    <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-[#444DDA]"></span>
                   )}
                 </Link>
                 <Link 

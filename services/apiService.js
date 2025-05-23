@@ -763,3 +763,542 @@ export async function updateOrderStatus(orderId, status) {
     };
   }
 }
+
+/**
+ * ตรวจสอบคูปอง - เวอร์ชันที่แก้ไขแล้ว
+ * @param {string} code รหัสคูปอง
+ * @param {number} subtotal ราคารวมก่อนหักส่วนลด
+ * @param {number} promotionDiscount ส่วนลดจากโปรโมชั่น
+ * @returns {Promise<Object>} ข้อมูลคูปอง
+ */
+export async function checkCoupon(code, subtotal, promotionDiscount) {
+  try {
+    // ตรวจสอบ input parameters
+    if (!code || typeof code !== 'string' || code.trim() === '') {
+      throw new Error('รหัสคูปองไม่ถูกต้อง');
+    }
+    
+    if (typeof subtotal !== 'number' || subtotal <= 0) {
+      throw new Error('ยอดรวมไม่ถูกต้อง');
+    }
+    
+    if (typeof promotionDiscount !== 'number' || promotionDiscount < 0) {
+      throw new Error('ส่วนลดโปรโมชั่นไม่ถูกต้อง');
+    }
+    
+    const requestData = {
+      code: code.trim().toUpperCase(), // ทำให้เป็นตัวพิมพ์ใหญ่และตัดช่องว่าง
+      subtotal: Math.round(subtotal), // ปัดเศษให้เป็นจำนวนเต็ม
+      promotionDiscount: Math.round(promotionDiscount) // ปัดเศษให้เป็นจำนวนเต็ม
+    };
+    
+    console.log('🔄 Checking coupon with data:', requestData);
+    
+    const result = await apiCall('post', '/api/coupons/check', requestData);
+    
+    console.log('✅ Coupon check successful:', result);
+    
+    // ตรวจสอบ response structure
+    if (!result || !result.coupon) {
+      throw new Error('ข้อมูลคูปองจากเซิร์ฟเวอร์ไม่ครบถ้วน');
+    }
+    
+    if (typeof result.discountAmount !== 'number' || result.discountAmount < 0) {
+      throw new Error('จำนวนส่วนลดไม่ถูกต้อง');
+    }
+    
+    return {
+      success: true,
+      coupon: result.coupon,
+      discountAmount: result.discountAmount
+    };
+  } catch (error) {
+    console.error('❌ Error checking coupon:', error);
+    
+    // จัดการ error response
+    let errorMessage = 'ไม่สามารถตรวจสอบคูปองได้';
+    
+    if (error.response?.status === 400) {
+      // Bad request - อาจเป็นปัญหาจากข้อมูลที่ส่งไป
+      errorMessage = error.response.data?.message || 'ข้อมูลที่ส่งไปไม่ถูกต้อง';
+    } else if (error.response?.status === 404) {
+      errorMessage = 'ไม่พบคูปองนี้ในระบบ';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'กรุณาเข้าสู่ระบบใหม่';
+    } else if (error.response?.status === 500) {
+      errorMessage = 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง';
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    return {
+      success: false,
+      message: errorMessage,
+      error: error
+    };
+  }
+}
+
+/**
+ * ตรวจสอบคูปองสำหรับ Order เฉพาะ
+ * @param {string} orderId รหัส Order
+ * @param {string} couponCode รหัสคูปอง
+ * @returns {Promise<Object>} ข้อมูลคูปอง
+ */
+export async function checkOrderCoupon(orderId, couponCode) {
+  try {
+    const result = await apiCall('post', `/api/orders/${orderId}/check-coupon`, {
+      couponCode
+    });
+    
+    return {
+      success: true,
+      coupon: result.coupon,
+      discountAmount: result.discountAmount
+    };
+  } catch (error) {
+    console.error('Error checking order coupon:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถตรวจสอบคูปองได้',
+      error
+    };
+  }
+}
+
+/**
+ * ใช้คูปองกับ Order
+ * @param {string} orderId รหัส Order
+ * @param {string} couponCode รหัสคูปอง
+ * @returns {Promise<Object>} ข้อมูลคูปองและ Order ที่อัปเดตแล้ว
+ */
+export async function applyOrderCoupon(orderId, couponCode) {
+  try {
+    const result = await apiCall('post', `/api/orders/${orderId}/apply-coupon`, {
+      couponCode
+    });
+    
+    return {
+      success: true,
+      coupon: result.coupon,
+      discountAmount: result.discountAmount,
+      order: result.order
+    };
+  } catch (error) {
+    console.error('Error applying coupon to order:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถใช้คูปองได้',
+      error
+    };
+  }
+}
+
+/**
+ * ยกเลิกการใช้คูปองกับ Order
+ * @param {string} orderId รหัส Order
+ * @returns {Promise<Object>} ข้อมูล Order ที่อัปเดตแล้ว
+ */
+export async function removeOrderCoupon(orderId) {
+  try {
+    const result = await apiCall('delete', `/api/orders/${orderId}/coupon`);
+    
+    return {
+      success: true,
+      order: result
+    };
+  } catch (error) {
+    console.error('Error removing coupon from order:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถยกเลิกคูปองได้',
+      error
+    };
+  }
+}
+
+/**
+ * สร้างคูปองจากแบบสอบถาม
+ * @returns {Promise<Object>} ข้อมูลคูปองที่สร้างหรือข้อมูลคูปองที่มีอยู่แล้ว
+ */
+export async function createSurveyCoupon() {
+  try {
+    const token = Cookies.get('access_token');
+    
+    if (!token) {
+      return {
+        success: false,
+        message: 'ไม่พบข้อมูลการเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',
+        error: true
+      };
+    }
+
+    const api = axios.create({
+      baseURL: process.env.API_URL,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      withCredentials: true,
+      timeout: 60000
+    });
+
+    console.log(`🔄 Making API call: POST /api/coupons/survey-coupon`);
+    
+    const response = await api.post('/api/coupons/survey-coupon');
+    console.log(`✅ API call successful:`, response.data);
+
+    // Backend ตอนนี้ส่งคืน response ที่มี structure ชัดเจนแล้ว
+    // ไม่ต้องแปลงอะไรเพิ่มเติม
+    return response.data;
+
+  } catch (error) {
+    console.error(`❌ API call failed:`, error);
+    
+    // จัดการ error response จาก backend
+    if (error.response && error.response.data) {
+      return {
+        success: false,
+        message: error.response.data.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์',
+        error: true
+      };
+    }
+    
+    // จัดการ network error หรือ timeout
+    if (error.code === 'ECONNABORTED') {
+      return {
+        success: false,
+        message: 'การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง',
+        error: true
+      };
+    }
+    
+    return {
+      success: false,
+      message: error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
+      error: true
+    };
+  }
+}
+
+/**
+ * ดึงรายการคูปองของผู้ใช้
+ * @param {boolean} includeUsed รวมคูปองที่ใช้แล้วหรือไม่
+ * @returns {Promise<Object>} รายการคูปองของผู้ใช้
+ */
+export async function getUserCoupons(includeUsed = false) {
+  try {
+    const token = Cookies.get('access_token');
+    
+    if (!token) {
+      return {
+        success: false,
+        message: 'ไม่พบข้อมูลการเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',
+        error: true
+      };
+    }
+
+    const api = axios.create({
+      baseURL: process.env.API_URL || 'http://localhost:3000',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      withCredentials: true,
+      timeout: 15000
+    });
+
+    // ✅ เพิ่ม query parameter
+    const endpoint = `/api/coupons/my-coupons${includeUsed ? '?includeUsed=true' : ''}`;
+    console.log(`🔄 Making API call: GET ${endpoint}`);
+    
+    const response = await api.get(endpoint);
+    console.log('✅ API call successful:', response.data);
+
+    return {
+      success: true,
+      coupons: response.data
+    };
+  } catch (error) {
+    console.error('❌ Error fetching user coupons:', error);
+    
+    if (error.response?.data) {
+      return {
+        success: false,
+        message: error.response.data.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์',
+        error: true
+      };
+    }
+    
+    return {
+      success: false,
+      message: error.message || 'ไม่สามารถดึงข้อมูลคูปองได้',
+      error: true
+    };
+  }
+}
+
+/**
+ * ดึงข้อมูลภาพรวมคูปองสำหรับ Admin
+ * @returns {Promise<Object>} ข้อมูลภาพรวมคูปอง
+ */
+export async function getAdminCouponOverview() {
+  try {
+    const result = await apiCall('get', '/api/coupons/admin/overview');
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    console.error('Error fetching admin coupon overview:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถดึงข้อมูลภาพรวมคูปองได้',
+      error
+    };
+  }
+}
+
+/**
+ * ดึงรายการคูปองสาธารณะ
+ * @returns {Promise<Object>} รายการคูปองสาธารณะ
+ */
+export async function getPublicCoupons() {
+  try {
+    const token = Cookies.get('access_token');
+    
+    if (!token) {
+      return {
+        success: false,
+        message: 'ไม่พบข้อมูลการเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',
+        error: true
+      };
+    }
+
+    const api = axios.create({
+      baseURL: process.env.API_URL || 'http://localhost:3000',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      withCredentials: true,
+      timeout: 15000
+    });
+
+    console.log('🔄 Making API call: GET /api/coupons/public');
+    
+    const response = await api.get('/api/coupons/public');
+    console.log('✅ API call successful:', response.data);
+
+    return {
+      success: true,
+      coupons: response.data
+    };
+  } catch (error) {
+    console.error('❌ Error fetching public coupons:', error);
+    
+    if (error.response?.data) {
+      return {
+        success: false,
+        message: error.response.data.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์',
+        error: true
+      };
+    }
+    
+    return {
+      success: false,
+      message: error.message || 'ไม่สามารถดึงข้อมูลคูปองสาธารณะได้',
+      error: true
+    };
+  }
+}
+
+
+// services/apiService.js - แก้ไข claimCoupon ให้เหมือน createSurveyCoupon
+
+/**
+ * เก็บคูปองสาธารณะ
+ * @param {string} couponId รหัสคูปอง
+ * @returns {Promise<Object>} ผลลัพธ์การเก็บคูปอง
+ */
+export async function claimCoupon(couponId) {
+  try {
+    console.log('🔄 Claiming coupon with ID:', couponId);
+    
+    // ✅ ใช้แบบเดียวกับ createSurveyCoupon
+    const token = Cookies.get('access_token');
+    
+    if (!token) {
+      return {
+        success: false,
+        message: 'ไม่พบข้อมูลการเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',
+        error: true
+      };
+    }
+
+    // ตรวจสอบ input
+    if (!couponId) {
+      return {
+        success: false,
+        message: 'รหัสคูปองไม่ถูกต้อง',
+        error: true
+      };
+    }
+
+    // ✅ สร้าง axios instance เหมือน createSurveyCoupon
+    const api = axios.create({
+      baseURL: process.env.API_URL || 'http://localhost:3000',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      withCredentials: true,
+      timeout: 60000
+    });
+
+    console.log(`🔄 Making API call: POST /api/coupons/claim/${couponId}`);
+    
+    const response = await api.post(`/api/coupons/claim/${couponId}`);
+    console.log(`✅ API call successful:`, response.data);
+
+    // ✅ ตรวจสอบ response structure
+    if (!response.data || typeof response.data !== 'object') {
+      throw new Error('ข้อมูลจากเซิร์ฟเวอร์ไม่ถูกต้อง');
+    }
+    
+    // ถ้า backend ส่ง success: false มา
+    if (response.data.success === false) {
+      return {
+        success: false,
+        message: response.data.message || 'ไม่สามารถเก็บคูปองได้',
+        error: true
+      };
+    }
+    
+    // ✅ ส่งข้อมูลกลับเหมือน createSurveyCoupon
+    return response.data;
+
+  } catch (error) {
+    console.error(`❌ API call failed:`, error);
+    
+    // ✅ จัดการ error เหมือน createSurveyCoupon
+    if (error.response && error.response.data) {
+      return {
+        success: false,
+        message: error.response.data.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์',
+        error: true
+      };
+    }
+    
+    // จัดการ network error หรือ timeout
+    if (error.code === 'ECONNABORTED') {
+      return {
+        success: false,
+        message: 'การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง',
+        error: true
+      };
+    }
+    
+    return {
+      success: false,
+      message: error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
+      error: true
+    };
+  }
+}
+
+/**
+ * สร้างคูปองสาธารณะ (Admin)
+ * @param {Object} couponData ข้อมูลคูปอง
+ * @returns {Promise<Object>} ผลลัพธ์การสร้างคูปอง
+ */
+export async function createPublicCoupon(couponData) {
+  try {
+    const result = await apiCall('post', '/api/coupons/public', couponData);
+    
+    return {
+      success: true,
+      coupon: result,
+      message: 'สร้างคูปองสำเร็จ'
+    };
+  } catch (error) {
+    console.error('Error creating public coupon:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถสร้างคูปองได้',
+      error
+    };
+  }
+}
+
+/**
+ * ลบคูปอง (Admin)
+ * @param {string} couponId รหัสคูปอง
+ * @returns {Promise<Object>} ผลลัพธ์การลบคูปอง
+ */
+export async function deleteCoupon(couponId) {
+  try {
+    await apiCall('delete', `/api/coupons/${couponId}`);
+    
+    return {
+      success: true,
+      message: 'ลบคูปองสำเร็จ'
+    };
+  } catch (error) {
+    console.error('Error deleting coupon:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถลบคูปองได้',
+      error
+    };
+  }
+}
+
+/**
+ * ดึงรายการคูปองทั้งหมด (Admin)
+ * @returns {Promise<Object>} รายการคูปองทั้งหมด
+ */
+export async function getAllCoupons() {
+  try {
+    const result = await apiCall('get', '/api/coupons');
+    
+    return {
+      success: true,
+      coupons: result
+    };
+  } catch (error) {
+    console.error('Error fetching all coupons:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถดึงข้อมูลคูปองทั้งหมดได้',
+      error
+    };
+  }
+}
+
+/**
+ * ตรวจสอบสถานะการเก็บคูปอง
+ * @param {Array} couponIds รายการรหัสคูปอง
+ * @returns {Promise<Object>} สถานะการเก็บคูปอง
+ */
+export async function getClaimedStatus(couponIds) {
+  try {
+    const couponIdsString = couponIds.join(',');
+    const result = await apiCall('get', `/api/coupons/claimed-status?couponIds=${couponIdsString}`);
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    console.error('Error fetching claimed status:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถตรวจสอบสถานะการเก็บคูปองได้',
+      error
+    };
+  }
+}

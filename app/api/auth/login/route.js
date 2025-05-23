@@ -19,7 +19,7 @@ export async function POST(request) {
     console.log('Login data:', loginData);
     
     // ส่งข้อมูลไปยัง API
-    const apiUrl = process.env.API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.API_URL || 'http://localhost:3000';
     const response = await axios.post(`${apiUrl}/auth/login`, loginData);
     console.log('Login API response status:', response.status);
     

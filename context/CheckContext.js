@@ -1,6 +1,4 @@
-// context/CheckContext.js - สำหรับจัดการ state ทั้งหมดของระบบ
 'use client'
-
 import { createContext, useContext, useState } from 'react';
 
 // สร้าง context สำหรับเก็บข้อมูลทั้งหมดของการตรวจสอบ
@@ -12,6 +10,10 @@ export function CheckProvider({ children }) {
   
   // ตะกร้าสินค้า - เก็บบริการที่ผู้ใช้เลือก
   const [cart, setCart] = useState([]);
+  
+  // เพิ่ม state สำหรับคูปอง
+  const [coupon, setCoupon] = useState(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
   
   // ข้อมูลผู้สมัคร (สำหรับหน้า 5)
   const [applicants, setApplicants] = useState([
@@ -220,9 +222,9 @@ export function CheckProvider({ children }) {
     console.log("Service count for discount calculation:", serviceCount);
     
     if (serviceCount >= 5) {
-      return 0.10; // ลด 15%
+      return 0.10; // ลด 10%
     } else if (serviceCount >= 3) {
-      return 0.05; // ลด 10%
+      return 0.05; // ลด 5%
     }
     return 0;
   };
@@ -245,13 +247,21 @@ export function CheckProvider({ children }) {
     return amount;
   };
   
-  // คำนวณราคารวมหลังหักส่วนลด
-  const getTotalPrice = () => {
-    const subtotal = getSubtotalPrice();
-    const discount = getDiscountAmount();
-    return subtotal - discount;
-  };
+// แก้ฟังก์ชัน getTotalPrice
+const getTotalPrice = () => {
+  const subtotal = getSubtotalPrice();
+  const promotionDiscount = getDiscountAmount();
+  const afterPromotionPrice = subtotal - promotionDiscount;
   
+  // หักคูปองจากราคาหลังหักโปรโมชั่นแล้ว
+  return afterPromotionPrice - couponDiscount;
+};
+// เพิ่มฟังก์ชันใหม่
+const getAfterPromotionPrice = () => {
+  const subtotal = getSubtotalPrice();
+  const promotionDiscount = getDiscountAmount();
+  return subtotal - promotionDiscount;
+};
   // เพิ่มผู้สมัคร
   const addApplicant = () => {
     // ถ้าเป็นโหมด personal และมีผู้สมัครอยู่แล้ว 1 คน ไม่อนุญาตให้เพิ่ม
@@ -434,11 +444,39 @@ export function CheckProvider({ children }) {
     });
   };
   
+  // ฟังก์ชันตรวจสอบคูปอง
+const checkCouponCode = async () => {
+  console.warn('checkCouponCode in context is deprecated - use checkCoupon from apiService directly');
+  return null;
+};
+  
+  // ฟังก์ชันใช้คูปอง
+  const applyCoupon = (couponData) => {
+    if (!couponData) return;
+    
+    setCoupon(couponData.coupon);
+    setCouponDiscount(couponData.discountAmount); // ✅ เพิ่มบรรทัดนี้
+  };
+
+  
+  // ฟังก์ชันยกเลิกการใช้คูปอง
+  const removeCoupon = () => {
+    setCoupon(null);
+    setCouponDiscount(0);
+  };
+  
+  // ฟังก์ชันรีเซ็ตคูปอง
+  const resetCoupon = () => {
+    setCoupon(null);
+    setCouponDiscount(0);
+  };
+  
   // รีเซ็ต state ทั้งหมด
   const resetState = () => {
     setCheckMode('company');
     setCart([]);
     setApplicants([{ id: 1, name: '', company: '', email: '', services: [] }]);
+    resetCoupon(); // รีเซ็ตข้อมูลคูปองด้วย
   };
 
   // ค่าที่จะส่งไปให้ component ที่ใช้ context นี้
@@ -466,6 +504,14 @@ export function CheckProvider({ children }) {
     isServiceFullyAssigned,
     areAllServicesFullyAssigned,
     getAvailableServicesForApplicant,
+    getAfterPromotionPrice,
+    // เพิ่มฟังก์ชันสำหรับคูปอง
+    coupon,
+    couponDiscount,
+    checkCouponCode,
+    applyCoupon,
+    removeCoupon,
+    resetCoupon,
     resetState
   };
 
