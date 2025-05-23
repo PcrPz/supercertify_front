@@ -31,7 +31,7 @@ export default function Home() {
               href="/background-check" 
               className="inline-block mt-8 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-8 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105"
             >
-              Get Started
+              เริ่มต้นการใช้งาน
             </Link>
           </div>
           

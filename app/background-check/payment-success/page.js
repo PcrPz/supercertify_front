@@ -198,14 +198,14 @@ export default function PaymentSuccessPage() {
   return (
     <div className="container max-w-5xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6 mt-2 ml-2">
-        {paymentStatus === 'completed' ? 'Complete Payment' : 'Payment Verified'}
+        {paymentStatus === 'completed' ? 'Complete Payment' : 'รอการตรวจสอบการชำระเงิน'}
       </h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-6">
         {/* ส่วนซ้าย - รายละเอียด Order และสถานะ */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Tracking Order ID - #{order.TrackingNumber}</h2>
+            <h2 className="text-xl font-semibold">หมายเลขติดตามคำสั่งซื้อ - #{order.TrackingNumber}</h2>
             <button 
               onClick={() => {navigator.clipboard.writeText(order.TrackingNumber)}}
               className="bg-yellow-400 hover:bg-yellow-500 
@@ -224,7 +224,7 @@ export default function PaymentSuccessPage() {
           
           {/* ข้อมูลลูกค้า */}
           <div className="mb-6">
-            <h3 className="font-medium mb-3">Customer Information</h3>
+            <h3 className="font-medium mb-3">ข้อมูลลูกค้า</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-500">Full Name</p>
@@ -240,7 +240,7 @@ export default function PaymentSuccessPage() {
           <div className="border-t border-dashed border-gray-300 my-6"></div>
           {/* กล่องสถานะการชำระเงิน */}
           <div className="mb-6">
-            <h3 className="font-medium mb-3">Background Check Process</h3>
+            <h3 className="font-medium mb-3">ขั้นตอนตรวจสอบประวัติ</h3>
             
             <div className="flex justify-between items-center">
               <div className="flex items-center">
@@ -250,7 +250,7 @@ export default function PaymentSuccessPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium">Payment Status</p>
+                  <p className="font-medium">สถานะการชำระเงิน</p>
                   <p className="text-sm text-gray-600">
                     {paymentStatus === 'completed'
                       ? 'ชำระเงินเรียบร้อยแล้ว กำลังดำเนินการตรวจสอบ'
@@ -276,23 +276,23 @@ export default function PaymentSuccessPage() {
             </div>
             
             <p className="text-sm text-gray-600 mt-4">
-              Tracking Process can be done with Background Check ID
+              กระบวนการติดตามสามารถทำได้โดยใช้รหัสตรวจสอบประวัติ
             </p>
           </div>
         </div>
         
         {/* ส่วนขวา - รายละเอียดการชำระเงิน */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-6">Payment Detail</h2>
+          <h2 className="text-xl font-semibold mb-6">รายละเอียดการชำระเงิน</h2>
           
           <div className="space-y-4">
             <div className="flex justify-between">
-              <p className="text-gray-600">Payment ID</p>
+              <p className="text-gray-600">หมายเลขชำระเงิน</p>
               <p className="font-medium">{order.payment?.Payment_ID || 'N/A'}</p>
             </div>
             
             <div className="flex justify-between">
-              <p className="text-gray-600">Method</p>
+              <p className="text-gray-600">วิธีชำระเงิน</p>
               <p className="font-medium">
                 {order.payment?.paymentMethod === 'qr_payment' 
                   ? 'QR Payment/E-Wallet' 
@@ -302,7 +302,7 @@ export default function PaymentSuccessPage() {
               </p>
             </div>
             <div className="flex justify-between">
-              <p className="text-gray-600">Payment Date</p>
+              <p className="text-gray-600">วันที่ชำระเงิน</p>
               <p className="font-medium">
                 {order.payment?.transferInfo?.date || 
                   new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -317,9 +317,9 @@ export default function PaymentSuccessPage() {
             {/* แสดงราคาปกติ (ถ้ามีส่วนลด) */}
             {discountInfo.hasDiscount && (
               <div className="flex justify-between">
-                <p className="text-gray-600">Original Price</p>
+                <p className="text-gray-600">ราคาก่อนหักส่วนลด</p>
                 <p className="font-medium line-through text-gray-500">
-                  {discountInfo.originalPrice.toLocaleString()} BAHT
+                  {discountInfo.originalPrice.toLocaleString()} บาท
                 </p>
               </div>
             )}
@@ -327,20 +327,20 @@ export default function PaymentSuccessPage() {
             {/* แสดงส่วนลด (ถ้ามี) */}
             {discountInfo.hasDiscount && (
               <div className="flex justify-between">
-                <p className="text-gray-600">Discount</p>
+                <p className="text-gray-600">ส่วนลด</p>
                 <p className="font-medium text-green-600">
-                  - {discountInfo.discountAmount.toLocaleString()} BAHT ({discountInfo.discountPercentage}%)
+                  - {discountInfo.discountAmount.toLocaleString()} บาท ({discountInfo.discountPercentage}%)
                 </p>
               </div>
             )}
             
             <div className="flex justify-between">
-              <p className="text-gray-600">Total Price</p>
+              <p className="text-gray-600">ราคารวมทั้งหมด</p>
               <p className="font-medium">{order.TotalPrice?.toLocaleString() || 0} BAHT</p>
             </div>
             
             <div className="flex justify-between">
-              <p className="text-gray-600">Status</p>
+              <p className="text-gray-600">สถานะ</p>
               <div className={`px-3 py-1 rounded-full text-sm font-medium 
                 ${paymentStatus === 'completed' 
                   ? 'bg-green-100 text-green-800' 
@@ -354,10 +354,10 @@ export default function PaymentSuccessPage() {
             
             <div className="pt-4 border-t border-gray-200">
               <div className="flex justify-between items-center bg-yellow-400 text-gray-700 px-4 py-3 rounded-xl">
-                <p className="font-bold">Total Price</p>
+                <p className="font-bold">ราคารวมทั้งหมด</p>
                 <div>
                   <p className="font-bold">
-                    {order.TotalPrice?.toLocaleString()} BAHT
+                    {order.TotalPrice?.toLocaleString()} บาท
                   </p>
                 </div>
               </div>
@@ -371,14 +371,14 @@ export default function PaymentSuccessPage() {
           onClick={handleRefresh}
           className="bg-yellow-400 hover:bg-yellow-500 text-gray-700 px-8 py-3 rounded-xl font-medium"
         >
-          Refresh
+          รีเฟรชหน้า
         </button>
         
         <button 
           onClick={() => paymentStatus === 'completed' ? router.push(`/background-check/drop-document/${orderId}`) : router.push('/background-check/dashboard')}
           className="bg-[#444DDA] hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium"
         >
-          {paymentStatus === 'completed' ? 'Drop Document' : 'Go to Dashboard'}
+          {paymentStatus === 'completed' ? 'ไปหน้าส่งเอกสาร' : 'กลับไปแดชบอร์ด'}
         </button>
       </div>
     </div>

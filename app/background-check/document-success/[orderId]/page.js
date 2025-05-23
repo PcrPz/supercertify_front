@@ -1,8 +1,9 @@
 'use client'
+
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { getOrderById } from '@/services/apiService';
-import { ClipboardCopy } from 'lucide-react';
+import { getOrderById, createSurveyCoupon } from '@/services/apiService';
+import { ClipboardCopy, Gift, AlertTriangle, X, Check } from 'lucide-react';
 
 export default function DocumentSubmissionSuccessPage() {
   const params = useParams();
@@ -13,6 +14,15 @@ export default function DocumentSubmissionSuccessPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  
+  // Modal states
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState(''); // 'success', 'alreadyClaimed', or 'error'
+  const [modalMessage, setModalMessage] = useState('');
+  const [couponData, setCouponData] = useState(null);
+  
+  // Survey button state
+  const [surveyLoading, setSurveyLoading] = useState(false);
   
   useEffect(() => {
     if (!orderId) {
@@ -47,6 +57,54 @@ export default function DocumentSubmissionSuccessPage() {
     setTimeout(() => setCopied(false), 2000);
   };
   
+  const handleSurvey = async () => {
+    setSurveyLoading(true);
+    
+    try {
+      // เปิดแบบสอบถามก่อนเสมอ
+      window.open("https://docs.google.com/forms/d/1oKOG8iPsH6TRfVBVYGuOCcEOKLfE7zLi6qAoNXLKIGw/viewform?edit_requested=true", "_blank");
+      
+      // จากนั้นจึงจัดการเรื่องคูปอง
+      const response = await createSurveyCoupon();
+      
+      console.log('Survey coupon response:', response); // เพื่อ debug
+      
+      if (response.success) {
+        setCouponData(response.coupon);
+        
+        if (response.alreadyClaimed) {
+          // ผู้ใช้เคยรับคูปองแล้ว
+          setModalType('alreadyClaimed');
+          setModalMessage(`คูปองส่วนลด ${response.coupon.discountPercent}% (${response.coupon.code}) ยังคงมีอยู่ในบัญชีของคุณและพร้อมใช้งานสำหรับการสั่งซื้อครั้งถัดไป ขอบคุณสำหรับความร่วมมือ!`);
+        } else {
+          // รับคูปองใหม่สำเร็จ
+          setModalType('success');
+          setModalMessage(`คูปองส่วนลด ${response.coupon.discountPercent}% (${response.coupon.code}) ได้ถูกเพิ่มเข้าในบัญชีของคุณแล้ว คุณสามารถใช้คูปองนี้ในการสั่งซื้อครั้งถัดไป`);
+        }
+        setShowModal(true);
+      } else {
+        // มีข้อผิดพลาด
+        setModalType('error');
+        setModalMessage(response.message || 'เกิดข้อผิดพลาดในการรับคูปอง กรุณาลองใหม่อีกครั้ง');
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error("Error with survey coupon:", error);
+      
+      // แสดง modal ข้อผิดพลาด
+      setModalType('error');
+      setModalMessage('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งภายหลัง');
+      setShowModal(true);
+    } finally {
+      setSurveyLoading(false);
+    }
+  };
+  
+  const closeModal = () => {
+    setShowModal(false);
+    setCouponData(null);
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex justify-center items-center p-4">
@@ -79,13 +137,12 @@ export default function DocumentSubmissionSuccessPage() {
     );
   }
   
-  // The main success view with improved styling
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 relative">
       <div className="max-w-4xl mx-auto">
-        {/* Main Content Card with deeper shadow and more rounded corners */}
+        {/* Card หลัก */}
         <div className="bg-white border-0 rounded-3xl p-6 md:p-12 shadow-2xl">
-          {/* Logo without background */}
+          {/* Logo */}
           <div className="flex justify-center mb-2">
             <img
               src="/SC-Thank.png"
@@ -94,7 +151,7 @@ export default function DocumentSubmissionSuccessPage() {
             />
           </div>
           
-          {/* Thank you message with improved typography */}
+          {/* ข้อความขอบคุณ */}
           <div className="text-center mb-4">
             <h2 className="text-2xl font-bold mb-4 text-gray-800 leading-tight">
               ขอบคุณ! คุณได้ส่งข้อมูลผู้สมัครแล้ว
@@ -110,7 +167,7 @@ export default function DocumentSubmissionSuccessPage() {
             </p>
           </div>
           
-          {/* Background Check ID with improved copy button */}
+          {/* Tracking Number */}
           <div className="flex justify-center items-center space-x-3 mb-10">
             <h3 className="text-3xl font-bold text-[#444DDA]">
               #{order?.TrackingNumber || "SCT26993706424"}
@@ -119,14 +176,14 @@ export default function DocumentSubmissionSuccessPage() {
               onClick={copyTrackingNumber}
               className={`${copied ? 'bg-green-500' : 'bg-yellow-400'} 
                         text-black text-xs px-3 py-1.5 rounded-full flex items-center 
-                        transition-all duration-300 hover:bg-yellow-500 shadow-sm`}
+                        transition-colors duration-300 hover:bg-yellow-500 shadow-sm`}
             >
-              <ClipboardCopy className="h-3.5 w-3.5 mr-1 mb-1" />
+              <ClipboardCopy className="h-3.5 w-3.5 mr-1" />
               <span>{copied ? 'คัดลอกแล้ว' : 'คัดลอก'}</span>
             </button>
           </div>
           
-          {/* Additional content - Thank you message and survey link with improvements */}
+          {/* ส่วนแบบสอบถาม */}
           <div className="bg-gradient-to-r from-blue-100 to-blue-50 p-6 rounded-2xl mb-8 text-center shadow-inner">
             <p className="text-base text-gray-800 mb-4 leading-relaxed">
               ขอบคุณพระคุณลูกค้าทุกท่านสำหรับการใช้บริการ <span className="font-semibold">Supercertify</span> เเละไว้วางใจให้เราเป็นส่วนหนึ่งในการคัดกรองบุคคลากรเเละพัฒนาคุณภาพองค์กรของท่าน
@@ -134,17 +191,27 @@ export default function DocumentSubmissionSuccessPage() {
             <p className="text-base text-gray-800 mb-6 leading-relaxed">
               <span className="font-semibold">แวนเนส พลัส คอลซัลติ้ง</span> ขอรบกวนเวลาอันมีค่าเพียง 5 นาทีของท่าน ทำเเบบสอบถามความพึงพอใจในการใช้บริการของเรา พร้อมรับโปรโมชั่นสุดพิเศษจากเราเป็นการขอบคุณ
             </p>
-            <a 
-              href="https://docs.google.com/forms/d/1oKOG8iPsH6TRfVBVYGuOCcEOKLfE7zLi6qAoNXLKIGw/viewform?edit_requested=true"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-[#444DDA] text-white px-6 py-3 rounded-full font-medium hover:bg-blue-700 transition-all duration-300 inline-block shadow-md hover:shadow-lg"
+            <button 
+              onClick={handleSurvey}
+              disabled={surveyLoading}
+              className={`px-6 py-3 rounded-full font-medium transition-colors duration-300 inline-block shadow-md hover:shadow-lg ${
+                surveyLoading 
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                  : 'bg-[#444DDA] text-white hover:bg-blue-700'
+              }`}
             >
-              ทำแบบสอบถาม
-            </a>
+              {surveyLoading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                  กำลังดำเนินการ...
+                </div>
+              ) : (
+                'ทำแบบสอบถาม'
+              )}
+            </button>
           </div>
           
-          {/* Added footer with dashboard button */}
+          {/* ปุ่มกลับไปยังแดชบอร์ด */}
           <div className="text-center mt-8">
             <button 
               onClick={goToDashboard}
@@ -155,6 +222,60 @@ export default function DocumentSubmissionSuccessPage() {
           </div>
         </div>
       </div>
+      
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="text-center mb-6">
+              {modalType === 'success' ? (
+                <>
+                  <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Check className="h-10 w-10 text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800">รับคูปองส่วนลดสำเร็จ!</h3>
+                </>
+              ) : modalType === 'alreadyClaimed' ? (
+                <>
+                  <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Gift className="h-10 w-10 text-blue-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800">คุณมีคูปองอยู่แล้ว</h3>
+                </>
+              ) : (
+                <>
+                  <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle className="h-10 w-10 text-red-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800">เกิดข้อผิดพลาด</h3>
+                </>
+              )}
+              <p className="text-gray-600 mt-2 leading-relaxed">{modalMessage}</p>
+              
+              {/* แสดงข้อมูลคูปอง (ถ้ามี) */}
+              {couponData && (modalType === 'success' || modalType === 'alreadyClaimed') && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">รหัสคูปอง:</span> {couponData.code}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">หมดอายุ:</span> {new Date(couponData.expiryDate).toLocaleDateString('th-TH')}
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex space-x-3">
+              <button 
+                onClick={closeModal}
+                className="w-full bg-[#444DDA] py-3 rounded-xl font-medium text-white hover:bg-blue-700 transition-colors"
+              >
+                ตกลง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

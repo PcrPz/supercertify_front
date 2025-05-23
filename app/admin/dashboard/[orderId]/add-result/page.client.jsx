@@ -46,45 +46,70 @@ export default function AddResultClient({ orderId }) {
     setSelectedCandidate(candidate);
   };
   
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!selectedCandidate) {
+    setError('กรุณาเลือกผู้สมัคร');
+    return;
+  }
+  
+  if (!fileInputRef.current.files[0]) {
+    setError('กรุณาเลือกไฟล์ผลการตรวจสอบ');
+    return;
+  }
+  
+  const file = fileInputRef.current.files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('resultNotes', resultNote);
+  formData.append('resultStatus', resultStatus);
+  
+  setUploadProgress({ status: 'uploading', progress: 0 });
+  
+  try {
+    console.log(`⬆️ Submitting form, uploading result for candidate ${selectedCandidate._id} in order ${orderId}`);
     
-    if (!selectedCandidate) {
-      setError('กรุณาเลือกผู้สมัคร');
-      return;
-    }
+    // แน่ใจว่ามีการส่ง orderId ไปด้วย!
+    const result = await uploadResultFile(selectedCandidate._id, formData, orderId);
     
-    if (!fileInputRef.current.files[0]) {
-      setError('กรุณาเลือกไฟล์ผลการตรวจสอบ');
-      return;
-    }
+    console.log(`✅ Upload result:`, result);
     
-    const file = fileInputRef.current.files[0];
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('resultNotes', resultNote);
-    formData.append('resultStatus', resultStatus);
-    
-    setUploadProgress({ status: 'uploading', progress: 0 });
-    
-    try {
-      const result = await uploadResultFile(selectedCandidate._id, formData);
+    if (result.success) {
+      // ตรวจสอบว่า candidate ที่เหลือมีกี่คนที่ยังไม่มีผลการตรวจสอบ
+      const remainingCandidates = order.candidates.filter(c => 
+        c._id !== selectedCandidate._id && c.result === null
+      ).length;
       
-      if (result.success) {
-        setUploadProgress({ status: 'success', message: 'อัปโหลดผลการตรวจสอบสำเร็จ' });
+      if (remainingCandidates > 0) {
+        setUploadProgress({ 
+          status: 'success', 
+          message: `อัปโหลดสำเร็จ ยังเหลืออีก ${remainingCandidates} คนที่ยังไม่มีผลการตรวจสอบ` 
+        });
         
-        // รอสักครู่แล้ว redirect กลับไปที่หน้ารายละเอียด order
+        // ยังมี candidates ที่เหลือ ให้รีโหลดหน้าปัจจุบัน
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setUploadProgress({ 
+          status: 'success', 
+          message: 'อัปโหลดสำเร็จ ผลการตรวจสอบครบทุกคนแล้ว ระบบจะส่งอีเมลแจ้งเตือนไปยังลูกค้า' 
+        });
+        
+        // ครบทุกคนแล้ว ให้ redirect ไปที่หน้า dashboard/[orderId]
         setTimeout(() => {
           router.push(`/admin/dashboard/${orderId}`);
         }, 2000);
-      } else {
-        setUploadProgress({ status: 'error', message: result.message });
       }
-    } catch (err) {
-      console.error('Error uploading result:', err);
-      setUploadProgress({ status: 'error', message: 'เกิดข้อผิดพลาดในการอัปโหลดผลการตรวจสอบ' });
+    } else {
+      setUploadProgress({ status: 'error', message: result.message });
     }
-  };
+  } catch (err) {
+    console.error('Error uploading result:', err);
+    setUploadProgress({ status: 'error', message: 'เกิดข้อผิดพลาดในการอัปโหลดผลการตรวจสอบ' });
+  }
+};
   
   if (loading) {
     return (
@@ -122,7 +147,7 @@ export default function AddResultClient({ orderId }) {
     );
   }
   
-  if (!order || order.OrderStatus !== 'processing') {
+  if (!order ) {
     return (
       <div className="container mx-auto p-6">
         <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
