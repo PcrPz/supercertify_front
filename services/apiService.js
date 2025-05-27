@@ -1302,3 +1302,35 @@ export async function getClaimedStatus(couponIds) {
     };
   }
 }
+/**
+ * ดึงข้อมูลเอกสารของผู้สมัคร (สำหรับหน้าแสดงเอกสาร)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @returns {Promise<Object>} ข้อมูลเอกสารของผู้สมัคร
+ */
+export async function getDocumentsByCandidate(candidateId) {
+  try {
+    // ดึงข้อมูลเอกสารที่อัปโหลดแล้ว
+    const uploadedDocs = await apiCall('get', `/api/documents/candidate/${candidateId}/documents`);
+    
+    // ดึงข้อมูลเอกสารที่ยังขาด
+    const missingDocs = await apiCall('get', `/api/documents/candidate/${candidateId}/missing`);
+    
+    // ดึงข้อมูลผู้สมัคร
+    const candidate = await apiCall('get', `/api/candidates/${candidateId}`);
+    
+    // จัดรูปแบบข้อมูลให้ตรงกับที่คอมโพเนนต์ต้องการ
+    return {
+      candidate: {
+        _id: candidate._id,
+        name: candidate.C_FullName,
+        email: candidate.C_Email,
+        company: candidate.C_Company_Name
+      },
+      serviceDocuments: uploadedDocs.serviceDocuments || [],
+      missingDocuments: missingDocs.missingDocuments || []
+    };
+  } catch (error) {
+    console.error('Error fetching candidate documents:', error);
+    throw error;
+  }
+}
