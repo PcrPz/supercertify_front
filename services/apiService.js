@@ -54,6 +54,7 @@ const apiCall = async (method, endpoint, data = null) => {
 
 /**
  * ดึงข้อมูลบริการทั้งหมด
+ * @returns {Promise<Array>} รายการบริการทั้งหมด พร้อม URL รูปภาพที่พร้อมใช้งาน
  */
 export async function getServices() {
   return apiCall('get', '/api/services');

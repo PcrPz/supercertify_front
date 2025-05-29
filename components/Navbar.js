@@ -95,12 +95,12 @@ const UserDropdown = ({ user }) => {
                   Coupon Management
                 </Link>
                 <Link 
-                  href="/admin/payments" 
+                  href="/admin/service-package" 
                   className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >
                   <CreditCard className="w-5 h-5 mr-3 text-green-500" />
-                  Payment Management
+                  Service/Package Pricing
                 </Link>
                 <Link 
                   href="/admin/settings" 
@@ -204,14 +204,14 @@ export default function Navbar({ user, activePath }) {
                   )}
                 </Link>
                 <Link 
-                  href="/admin/orders" 
+                  href="/admin/service-package" 
                   className={`text-gray-700 hover:text-red-600 relative 
-                    ${isActiveLink('/admin/orders') 
+                    ${isActiveLink('/admin/service-package') 
                       ? 'text-red-600 font-semibold' 
                       : ''}`}
                 >
-                  Orders
-                  {isActiveLink('/admin/orders') && (
+                  Pricing
+                  {isActiveLink('/admin/service-package') && (
                     <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-red-600"></span>
                   )}
                 </Link>
