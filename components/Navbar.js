@@ -34,9 +34,21 @@ const UserDropdown = ({ user }) => {
         onClick={() => setIsOpen(!isOpen)} 
         className="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 rounded-lg p-2 transition-colors duration-200"
       >
-        <div className={`w-8 h-8 rounded-full ${isAdmin ? 'bg-red-500' : 'bg-blue-500'} flex items-center justify-center text-white font-semibold`}>
-          {user.username?.charAt(0).toUpperCase() || 'U'}
-        </div>
+        {user.profilePicture ? (
+          // แสดงรูปโปรไฟล์ถ้ามี
+          <div className="w-8 h-8 rounded-full overflow-hidden">
+            <img 
+              src={user.profilePicture} 
+              alt={user.username}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : (
+          // แสดงตัวอักษรแรกถ้าไม่มีรูปโปรไฟล์
+          <div className={`w-8 h-8 rounded-full ${isAdmin ? 'bg-red-500' : 'bg-blue-500'} flex items-center justify-center text-white font-semibold`}>
+            {user.username?.charAt(0).toUpperCase() || 'U'}
+          </div>
+        )}
         <span className="text-gray-700 font-medium">{user.username}</span>
         <ChevronDown 
           className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
@@ -52,11 +64,23 @@ const UserDropdown = ({ user }) => {
             border-r-8 border-r-transparent
             shadow-md"></div>
           
-          {/* User Info Header */}
+          {/* User Info Header - แก้ไขให้แสดงรูปโปรไฟล์ */}
           <div className="flex items-center p-4 border-b border-gray-100">
-            <div className={`w-12 h-12 rounded-full ${isAdmin ? 'bg-red-500' : 'bg-blue-500'} flex items-center justify-center text-white font-bold mr-3`}>
-              {user.username?.charAt(0).toUpperCase() || 'U'}
-            </div>
+            {user.profilePicture ? (
+              // แสดงรูปโปรไฟล์ถ้ามี
+              <div className="w-12 h-12 rounded-full overflow-hidden mr-3">
+                <img 
+                  src={user.profilePicture} 
+                  alt={user.username}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              // แสดงตัวอักษรแรกถ้าไม่มีรูปโปรไฟล์
+              <div className={`w-12 h-12 rounded-full ${isAdmin ? 'bg-red-500' : 'bg-blue-500'} flex items-center justify-center text-white font-bold mr-3`}>
+                {user.username?.charAt(0).toUpperCase() || 'U'}
+              </div>
+            )}
             <div>
               <p className="font-semibold text-gray-800">{user.username}</p>
               {isAdmin && (
@@ -65,7 +89,7 @@ const UserDropdown = ({ user }) => {
             </div>
           </div>
           
-          {/* Dropdown Menu Items - แสดงเมนูต่างกันระหว่าง User และ Admin */}
+          {/* Dropdown Menu Items - แก้ไข path Edit Profile เป็น My Profile */}
           <div className="py-2">
             {isAdmin ? (
               // เมนูสำหรับ Admin
@@ -79,7 +103,7 @@ const UserDropdown = ({ user }) => {
                   Admin Dashboard
                 </Link>
                 <Link 
-                  href="/admin/users" 
+                  href="/admin/users-management" 
                   className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >
@@ -123,12 +147,12 @@ const UserDropdown = ({ user }) => {
                   Dashboard
                 </Link>
                 <Link 
-                  href="/edit-profile" 
+                  href="/my-profile" 
                   className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >
                   <UserCircle className="w-5 h-5 mr-3 text-green-500" />
-                  Edit Profile
+                  My Profile
                 </Link>
                 <Link 
                   href="/coupon" 
@@ -210,7 +234,7 @@ export default function Navbar({ user, activePath }) {
                       ? 'text-red-600 font-semibold' 
                       : ''}`}
                 >
-                  Pricing
+                  Pricing Package
                   {isActiveLink('/admin/service-package') && (
                     <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-red-600"></span>
                   )}
@@ -228,14 +252,14 @@ export default function Navbar({ user, activePath }) {
                   )}
                 </Link>
                 <Link 
-                  href="/admin/payments" 
+                  href="/admin/user-management" 
                   className={`text-gray-700 hover:text-red-600 relative 
                     ${isActiveLink('/admin/payments') 
                       ? 'text-red-600 font-semibold' 
                       : ''}`}
                 >
-                  Payments
-                  {isActiveLink('/admin/payments') && (
+                  User-Management
+                  {isActiveLink('/admin/user-management') && (
                     <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-red-600"></span>
                   )}
                 </Link>
