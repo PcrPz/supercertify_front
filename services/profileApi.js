@@ -308,13 +308,24 @@ export async function updateUserRole(userId, role) {
   return response;
 }
 
+/**
+ * ลบผู้ใช้ (เฉพาะ admin)
+ * @param {string} userId ID ของผู้ใช้ที่ต้องการลบ
+ * @returns {Promise<Object>} ผลลัพธ์การลบผู้ใช้
+ */
+export async function deleteUser(userId) {
+  const response = await apiCall('delete', `/users/${userId}`);
+  return response;
+}
+
 export default {
   getMyProfile,
   updateProfile,
   uploadProfilePicture,
   deleteProfilePicture,
-  getUserProfile,       // เพิ่มเข้ามาใหม่
-  getAllUsers,          // เพิ่มเข้ามาใหม่
-  getUsersByRole,       // เพิ่มเข้ามาใหม่
-  updateUserRole        // เพิ่มเข้ามาใหม่
+  getUserProfile,
+  getAllUsers,
+  getUsersByRole,
+  updateUserRole,
+  deleteUser          // เพิ่มเข้ามาใหม่
 };

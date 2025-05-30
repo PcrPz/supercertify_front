@@ -103,7 +103,7 @@ const UserDropdown = ({ user }) => {
                   Admin Dashboard
                 </Link>
                 <Link 
-                  href="/admin/users-management" 
+                  href="/admin/user-management" 
                   className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >
