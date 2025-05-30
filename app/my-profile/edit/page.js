@@ -105,6 +105,15 @@ function EditProfileContent() {
         setValidationField('username');
       }
     }
+    
+    // ตรวจสอบรูปแบบเบอร์โทรศัพท์
+    if (name === 'phoneNumber' && value) {
+      const phoneRegex = /^[0-9\+\-\s]+$/;
+      if (!phoneRegex.test(value)) {
+        setValidationMessage('รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง');
+        setValidationField('phoneNumber');
+      }
+    }
   };
 
   // จัดการการเปลี่ยนแปลงข้อมูลรหัสผ่าน
@@ -163,6 +172,14 @@ function EditProfileContent() {
     }
   };
   
+  // ฟังก์ชันสำหรับล้างข้อความแจ้งเตือนหลังจากเวลาที่กำหนด
+  const clearMessages = (timeout = 5000) => {
+    setTimeout(() => {
+      setSuccess('');
+      setError('');
+    }, timeout);
+  };
+  
   // บันทึกข้อมูลโปรไฟล์
   const handleUpdateProfile = async () => {
     // ตรวจสอบข้อมูลก่อนส่ง
@@ -178,6 +195,16 @@ function EditProfileContent() {
       return;
     }
     
+    // ตรวจสอบรูปแบบเบอร์โทรศัพท์
+    if (formData.phoneNumber) {
+      const phoneRegex = /^[0-9\+\-\s]+$/;
+      if (!phoneRegex.test(formData.phoneNumber)) {
+        setValidationMessage('รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง');
+        setValidationField('phoneNumber');
+        return;
+      }
+    }
+    
     setSaving(true);
     setError('');
     setSuccess('');
@@ -190,7 +217,7 @@ function EditProfileContent() {
       if (profilePicture) {
         const pictureResult = await profileApi.uploadProfilePicture(profilePicture);
         if (!pictureResult.success) {
-          setValidationMessage(pictureResult.message);
+          setValidationMessage(pictureResult.message || 'ไม่สามารถอัปโหลดรูปโปรไฟล์ได้');
           setValidationField('profilePicture');
           setSaving(false);
           return;
@@ -201,23 +228,19 @@ function EditProfileContent() {
       const result = await profileApi.updateProfile(formData);
       
       if (result.success) {
-        setSuccess(result.message || 'อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว');
+        // แสดงข้อความสำเร็จสั้นๆ
+        alert('บันทึกข้อมูลเรียบร้อยแล้ว กำลังรีเฟรชหน้า...');
         
-        // รีโหลดข้อมูลผู้ใช้ให้เป็นปัจจุบัน
-        const updatedProfile = await profileApi.getMyProfile();
-        if (updatedProfile) {
-          setUser(updatedProfile);
-          setFormData({
-            username: updatedProfile.username || '',
-            phoneNumber: updatedProfile.phoneNumber || '',
-            companyName: updatedProfile.companyName || '',
-          });
-        }
+        // รีโหลดข้อมูลผู้ใช้
+        await reloadUserProfile();
+        
+        // รีโหลดหน้าเว็บ
+        window.location.reload();
       } else {
         // ตรวจสอบประเภทของ error
         if (result.errorCode === 'USERNAME_ALREADY_EXISTS') {
           // แสดงข้อความเตือนแทนข้อความผิดพลาด
-          setValidationMessage(result.message);
+          setValidationMessage(result.message || 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว');
           setValidationField('username');
         } else if (result.errorCode === 'VALIDATION_ERROR' && result.validationErrors) {
           // กรณีมี validation errors หลายรายการ
@@ -274,13 +297,14 @@ function EditProfileContent() {
       });
       
       if (result.success) {
-        // รีเซ็ตฟิลด์รหัสผ่าน
-        setPasswordData({
-          currentPassword: '',
-          newPassword: '',
-        });
+        // แสดงข้อความสำเร็จ
+        alert('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กำลังรีเฟรชหน้า...');
         
-        setSuccess(result.message || 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
+        // รีโหลดข้อมูลผู้ใช้
+        await reloadUserProfile();
+        
+        // รีโหลดหน้าเว็บ
+        window.location.reload();
       } else {
         // ตรวจสอบประเภทของ error
         if (result.errorCode === 'INVALID_CURRENT_PASSWORD') {
@@ -689,7 +713,7 @@ function EditProfileContent() {
                 
                 <button
                   type="button"
-                  onClick={handleUpdatePassword}
+                  onClick={() => setIsPasswordModalOpen(true)}
                   className="px-6 py-2.5 bg-[#444DDA] rounded-full text-white hover:bg-[#444DDA]/90 transition shadow-sm font-medium flex items-center"
                   disabled={saving}
                 >
@@ -753,14 +777,14 @@ function EditProfileContent() {
                   <div className="mt-6 flex justify-end space-x-3">
                     <button
                       type="button"
-                      className="inline-flex justify-center rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                      className="inline-flex justify-center rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#444DDA] focus:ring-offset-2"
                       onClick={() => setIsConfirmModalOpen(false)}
                     >
                       ยกเลิก
                     </button>
                     <button
                       type="button"
-                      className="inline-flex justify-center rounded-full border border-transparent bg-[#444DDA] px-4 py-2 text-sm font-medium text-white hover:bg-[#444DDA]/90 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                      className="inline-flex justify-center rounded-full border border-transparent bg-[#444DDA] px-4 py-2 text-sm font-medium text-white hover:bg-[#444DDA]/90 focus:outline-none focus:ring-2 focus:ring-[#444DDA] focus:ring-offset-2"
                       onClick={handleUpdateProfile}
                     >
                       ยืนยัน
@@ -773,7 +797,7 @@ function EditProfileContent() {
         </Dialog>
       </Transition>
       
-      {/* Modal เปลี่ยนรหัสผ่าน */}
+      {/* Modal ยืนยันการเปลี่ยนรหัสผ่าน */}
       <Transition appear show={isPasswordModalOpen} as={Fragment}>
         <Dialog as="div" className="relative z-10" onClose={() => setIsPasswordModalOpen(false)}>
           <Transition.Child
@@ -804,72 +828,12 @@ function EditProfileContent() {
                     as="h3"
                     className="text-lg font-bold leading-6 text-gray-900"
                   >
-                    เปลี่ยนรหัสผ่าน
+                    ยืนยันการเปลี่ยนรหัสผ่าน
                   </Dialog.Title>
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                        รหัสผ่านปัจจุบัน
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          id="currentPassword"
-                          name="currentPassword"
-                          value={passwordData.currentPassword}
-                          onChange={handlePasswordChange}
-                          className="block w-full rounded-full border-gray-300 px-4 py-3 focus:border-red-400 focus:ring-red-400 sm:text-sm"
-                          placeholder="รหัสผ่านปัจจุบัน"
-                        />
-                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="text-gray-400 hover:text-gray-600 focus:outline-none"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-5 w-5" />
-                            ) : (
-                              <Eye className="h-5 w-5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                        รหัสผ่านใหม่
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showNewPassword ? "text" : "password"}
-                          id="newPassword"
-                          name="newPassword"
-                          value={passwordData.newPassword}
-                          onChange={handlePasswordChange}
-                          className="block w-full rounded-full border-gray-300 px-4 py-3 focus:border-red-400 focus:ring-red-400 sm:text-sm"
-                          minLength={6}
-                          placeholder="รหัสผ่านใหม่"
-                        />
-                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="text-gray-400 hover:text-gray-600 focus:outline-none"
-                          >
-                            {showNewPassword ? (
-                              <EyeOff className="h-5 w-5" />
-                            ) : (
-                              <Eye className="h-5 w-5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร
-                      </p>
-                    </div>
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-600">
+                      คุณต้องการเปลี่ยนรหัสผ่านใช่หรือไม่? การเปลี่ยนรหัสผ่านจะมีผลทันทีและคุณจะต้องใช้รหัสผ่านใหม่ในการเข้าสู่ระบบครั้งถัดไป
+                    </p>
                   </div>
 
                   <div className="mt-6 flex justify-end space-x-3">
@@ -885,7 +849,7 @@ function EditProfileContent() {
                       className="inline-flex justify-center rounded-full border border-transparent bg-[#444DDA] px-4 py-2 text-sm font-medium text-white hover:bg-[#444DDA]/90 focus:outline-none focus:ring-2 focus:ring-[#444DDA] focus:ring-offset-2"
                       onClick={handleUpdatePassword}
                     >
-                      บันทึกรหัสผ่าน
+                      ยืนยันการเปลี่ยนรหัสผ่าน
                     </button>
                   </div>
                 </Dialog.Panel>
