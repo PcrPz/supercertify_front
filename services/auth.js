@@ -1,5 +1,6 @@
 // services/auth.js
 import api from '@/lib/axios';
+import { router } from 'next/navigation';
 
 
 // ฟังก์ชันสำหรับการลงทะเบียน
@@ -33,10 +34,21 @@ export const logout = async () => {
   }
 };
 
-// ฟังก์ชันสำหรับตรวจสอบสถานะการเข้าสู่ระบบ
-export const checkAuthStatus = async () => {
+// ปรับปรุงฟังก์ชัน checkAuthStatus
+export const checkAuthStatus = async (forceRefresh = false) => {
   try {
-    const response = await api.get('/auth/status');
+    const config = {};
+    
+    // ถ้าต้องการบังคับให้ดึงข้อมูลใหม่ (ไม่ใช้แคช)
+    if (forceRefresh) {
+      config.headers = {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      };
+    }
+    
+    const response = await api.get('/auth/status', config);
     return response.data;
     
   } catch (error) {
@@ -77,5 +89,23 @@ export const handleRedirectAfterAuth = (router, callbackUrl) => {
     router.push(callbackUrl);
   } else {
     router.push('/dashboard');
+  }
+};
+
+export const reloadUserProfile = async () => {
+  try {
+    // บังคับให้เรียก API ใหม่โดยไม่ใช้แคช
+    const response = await api.get('/auth/status', {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error reloading user profile:', error);
+    return { authenticated: false, user: null };
   }
 };

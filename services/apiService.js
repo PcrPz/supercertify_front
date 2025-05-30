@@ -54,6 +54,7 @@ const apiCall = async (method, endpoint, data = null) => {
 
 /**
  * ดึงข้อมูลบริการทั้งหมด
+ * @returns {Promise<Array>} รายการบริการทั้งหมด พร้อม URL รูปภาพที่พร้อมใช้งาน
  */
 export async function getServices() {
   return apiCall('get', '/api/services');
@@ -1300,5 +1301,81 @@ export async function getClaimedStatus(couponIds) {
       message: error.response?.data?.message || error.message || 'ไม่สามารถตรวจสอบสถานะการเก็บคูปองได้',
       error
     };
+  }
+}
+/**
+ * ดึงข้อมูลเอกสารของผู้สมัคร (สำหรับหน้าแสดงเอกสาร)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @returns {Promise<Object>} ข้อมูลเอกสารของผู้สมัคร
+ */
+export async function getDocumentsByCandidate(candidateId) {
+  try {
+    // ดึงข้อมูลเอกสารที่อัปโหลดแล้ว
+    const uploadedDocs = await apiCall('get', `/api/documents/candidate/${candidateId}/documents`);
+    
+    // ดึงข้อมูลเอกสารที่ยังขาด
+    const missingDocs = await apiCall('get', `/api/documents/candidate/${candidateId}/missing`);
+    
+    // ดึงข้อมูลผู้สมัคร
+    const candidate = await apiCall('get', `/api/candidates/${candidateId}`);
+    
+    // จัดรูปแบบข้อมูลให้ตรงกับที่คอมโพเนนต์ต้องการ
+    return {
+      candidate: {
+        _id: candidate._id,
+        name: candidate.C_FullName,
+        email: candidate.C_Email,
+        company: candidate.C_Company_Name
+      },
+      serviceDocuments: uploadedDocs.serviceDocuments || [],
+      missingDocuments: missingDocs.missingDocuments || []
+    };
+  } catch (error) {
+    console.error('Error fetching candidate documents:', error);
+    throw error;
+  }
+ 
+}
+
+/**
+ * ดึงจำนวนคำสั่งซื้อของผู้ใช้แต่ละคน (สำหรับ Admin)
+ * @returns {Promise<Object>} จำนวนคำสั่งซื้อของผู้ใช้แต่ละคนในรูปแบบ { userId: count }
+ */
+export async function getOrderCountByUser() {
+  try {
+    // เริ่มต้นด้วยการพยายามเรียก API endpoint ใหม่
+    try {
+      const result = await apiCall('get', '/api/orders/count-by-user');
+      if (result && typeof result === 'object') {
+        return result;
+      }
+      throw new Error('ข้อมูลที่ได้รับไม่อยู่ในรูปแบบที่ถูกต้อง');
+    } catch (newApiError) {
+      console.warn('ไม่สามารถใช้ API ใหม่ได้, กำลังใช้วิธีเดิม:', newApiError.message);
+      
+      // ถ้า API ใหม่ไม่ทำงาน ให้ใช้วิธีเดิมโดยดึงข้อมูลคำสั่งซื้อทั้งหมด
+      const orders = await apiCall('get', '/api/orders');
+      
+      if (!Array.isArray(orders)) {
+        throw new Error('ข้อมูลคำสั่งซื้อไม่อยู่ในรูปแบบที่ถูกต้อง');
+      }
+      
+      // นับจำนวนคำสั่งซื้อของผู้ใช้แต่ละคน
+      const orderCounts = {};
+      orders.forEach(order => {
+        if (order.user && order.user._id) {
+          const userId = typeof order.user._id === 'object' 
+            ? order.user._id.toString() 
+            : order.user._id;
+          
+          orderCounts[userId] = (orderCounts[userId] || 0) + 1;
+        }
+      });
+      
+      return orderCounts;
+    }
+  } catch (error) {
+    console.error('Error fetching order count by user:', error);
+    return {};
   }
 }
