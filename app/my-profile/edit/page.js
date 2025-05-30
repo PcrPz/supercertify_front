@@ -1,12 +1,13 @@
 'use client'
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, ChevronLeft, Lock, Eye, EyeOff, User, Mail, Phone, Building, Save, X, Camera } from 'lucide-react';
 import profileApi from '@/services/profileApi';
 import { reloadUserProfile } from '@/services/auth';
 import { Dialog, Transition } from '@headlessui/react';
 
-export default function EditProfile() {
+// Separate component for the search params logic
+function EditProfileContent() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -894,5 +895,26 @@ export default function EditProfile() {
         </Dialog>
       </Transition>
     </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function EditProfileLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex flex-col items-center">
+        <Loader2 className="w-12 h-12 text-[#444DDA] animate-spin mb-4" />
+        <span className="text-gray-600 text-lg">กำลังโหลดข้อมูล...</span>
+      </div>
+    </div>
+  );
+}
+
+// Main component with Suspense wrapper
+export default function EditProfile() {
+  return (
+    <Suspense fallback={<EditProfileLoading />}>
+      <EditProfileContent />
+    </Suspense>
   );
 }
