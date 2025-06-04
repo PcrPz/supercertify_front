@@ -1,10 +1,12 @@
 "use client"
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { getUsersByRole, getAllUsers, updateUserRole, deleteUser } from '@/services/profileApi';
 import { getOrderCountByUser } from '@/services/apiService';
 
 // Main component
 export default function AdminUserManagement() {
+  const router = useRouter(); 
   // States
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -148,9 +150,9 @@ export default function AdminUserManagement() {
   };
 
   const handleViewDetails = (userId) => {
-    console.log("ดูรายละเอียดผู้ใช้:", userId);
-    alert(`ดูรายละเอียดผู้ใช้: ${userId}`);
+    router.push(`/admin/user-management/${userId}`);
   };
+
 
   const handleMenuToggle = (userId) => {
     setActiveMenu(activeMenu === userId ? null : userId);
@@ -320,6 +322,7 @@ export default function AdminUserManagement() {
                 onPromoteToAdmin={handlePromoteToAdmin}
                 onDeleteUser={handleDeleteUser}
                 colors={colors}
+                router={router} 
               />
             ))
           ) : (
@@ -533,7 +536,8 @@ function UserRow({
   onMenuToggle, 
   onPromoteToAdmin, 
   onDeleteUser, 
-  colors 
+  colors,
+  router
 }) {
   return (
     <div className="flex items-center rounded-full border-2 border-gray-300 px-6 py-4 mb-4 hover:shadow-sm transition-shadow relative">
@@ -579,16 +583,16 @@ function UserRow({
       
       {/* View Button */}
       <div className="w-[10%] text-center">
-        <button
-          onClick={() => onViewDetails(user._id)}
-          className="text-sm font-medium rounded-full px-5 py-1.5 transition-all"
-          style={{ 
-            backgroundColor: colors.primary,
-            color: colors.white
-          }}
-        >
-          ดู
-        </button>
+      <button
+        onClick={() => router.push(`/admin/user-management/${user._id}`)}
+        className="text-sm font-medium rounded-full px-5 py-1.5 transition-all"
+        style={{ 
+          backgroundColor: colors.primary,
+          color: colors.white
+        }}
+      >
+        ดู
+      </button>
       </div>
 
       {/* Actions */}
