@@ -1,14 +1,14 @@
 // services/apiService.js
+
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { sendCompletedResultsNotification } from './emailService';
-
 
 // สร้าง instance ของ axios พร้อมกำหนดค่าเริ่มต้น
 const createApiInstance = () => {
   const token = Cookies.get('access_token');
   
-  return axios.create({
+  const instance = axios.create({
     baseURL: process.env.API_URL, // API Server ที่ต้องการเรียกใช้
     headers: {
       'Content-Type': 'application/json',
@@ -18,26 +18,167 @@ const createApiInstance = () => {
     timeout: 15000 // กำหนด timeout เป็น 15 วินาที
   });
   
+  // เพิ่ม interceptor สำหรับจัดการ refresh token
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      console.error(`❌ API Error: ${error.response?.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+      
+      // เมื่อได้รับ 401 Unauthorized และยังไม่เคยพยายาม refresh
+      if (error.response?.status === 401 && !error.config._retry) {
+        console.log('🔄 Attempting to refresh token...');
+        error.config._retry = true;
+        
+        try {
+          console.log('📤 Calling refresh token API...');
+          // ใช้ axios แยก เพื่อไม่ให้เกิด loop
+          const refreshResponse = await axios.post('/api/auth/refresh-token', {}, { 
+            withCredentials: true 
+          });
+          
+          console.log('📥 Refresh token response:', refreshResponse.data);
+          
+          if (refreshResponse.data.success) {
+            console.log('✅ Token refreshed successfully! Retrying original request...');
+            
+            // เพิ่มการ emit event เมื่อ refresh token สำเร็จ
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth:token-refreshed'));
+            }
+            
+            // อัปเดต token ใหม่
+            const newToken = Cookies.get('access_token');
+            if (newToken) {
+              error.config.headers.Authorization = `Bearer ${newToken}`;
+            }
+            
+            // สร้าง instance ใหม่และส่งคำขอเดิมอีกครั้ง
+            return axios(error.config);
+          } else {
+            console.log('❌ Token refresh failed with success=false');
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+            return Promise.reject(error);
+          }
+        } catch (refreshError) {
+          console.error('❌ Error during token refresh:', refreshError);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+          return Promise.reject(refreshError);
+        }
+      }
+      
+      return Promise.reject(error);
+    }
+  );
+  
+  return instance;
 };
 
-// สร้างฟังก์ชันครอบการเรียก API พร้อมระบบ logging และ error handling
-const apiCall = async (method, endpoint, data = null) => {
+const createFormDataApiInstance = () => {
   const token = Cookies.get('access_token');
-  const api = createApiInstance();
+  
+  const instance = axios.create({
+    baseURL: process.env.API_URL,
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    withCredentials: true,
+    timeout: 30000 // กำหนด timeout นานขึ้นสำหรับการอัปโหลดไฟล์
+  });
+    // เพิ่ม interceptor สำหรับจัดการ refresh token
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      console.error(`❌ API Error: ${error.response?.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+      
+      // เมื่อได้รับ 401 Unauthorized และยังไม่เคยพยายาม refresh
+      if (error.response?.status === 401 && !error.config._retry) {
+        console.log('🔄 Attempting to refresh token...');
+        error.config._retry = true;
+        
+        try {
+          console.log('📤 Calling refresh token API...');
+          // ใช้ axios แยก เพื่อไม่ให้เกิด loop
+          const refreshResponse = await axios.post('/api/auth/refresh-token', {}, { 
+            withCredentials: true 
+          });
+          
+          console.log('📥 Refresh token response:', refreshResponse.data);
+          
+          if (refreshResponse.data.success) {
+            console.log('✅ Token refreshed successfully! Retrying original request...');
+            
+            // เพิ่มการ emit event เมื่อ refresh token สำเร็จ
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth:token-refreshed'));
+            }
+            
+            // อัปเดต token ใหม่
+            const newToken = Cookies.get('access_token');
+            if (newToken) {
+              error.config.headers.Authorization = `Bearer ${newToken}`;
+            }
+            
+            // สร้าง instance ใหม่และส่งคำขอเดิมอีกครั้ง
+            return axios(error.config);
+          } else {
+            console.log('❌ Token refresh failed with success=false');
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+            return Promise.reject(error);
+          }
+        } catch (refreshError) {
+          console.error('❌ Error during token refresh:', refreshError);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+          return Promise.reject(refreshError);
+        }
+      }
+      
+      return Promise.reject(error);
+    }
+  );
+  
+  return instance;
+};
+
+// ส่วนที่เหลือของไฟล์คงไว้เหมือนเดิม...
+// สร้างฟังก์ชันครอบการเรียก API พร้อมระบบ logging และ error handling
+const apiCall = async (method, endpoint, data = null, isFormData = false) => {
+  const api = isFormData ? createFormDataApiInstance() : createApiInstance();
   
   try {
     console.log(`🔄 API Call: ${method.toUpperCase()} ${endpoint}`);
     console.time(`API ${method.toUpperCase()} ${endpoint}`);
     
     let response;
-    if (method.toLowerCase() === 'get') {
-      response = await api.get(endpoint);
-    } else if (method.toLowerCase() === 'post') {
-      response = await api.post(endpoint, data);
-    } else if (method.toLowerCase() === 'put') {
-      response = await api.put(endpoint, data);
-    } else if (method.toLowerCase() === 'delete') {
-      response = await api.delete(endpoint);
+    const config = {};
+    
+    // ตั้งค่า timeout เพิ่มเติมสำหรับ form data
+    if (isFormData) {
+      config.timeout = 60000; // 60 วินาที
+    }
+    
+    switch (method.toLowerCase()) {
+      case 'get':
+        response = await api.get(endpoint, config);
+        break;
+      case 'post':
+        response = await api.post(endpoint, data, config);
+        break;
+      case 'put':
+        response = await api.put(endpoint, data, config);
+        break;
+      case 'delete':
+        response = await api.delete(endpoint, config);
+        break;
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
     }
     
     console.timeEnd(`API ${method.toUpperCase()} ${endpoint}`);
@@ -46,9 +187,27 @@ const apiCall = async (method, endpoint, data = null) => {
     return response.data;
   } catch (error) {
     console.timeEnd(`API ${method.toUpperCase()} ${endpoint}`);
-    console.error(`❌ Complete API Error Details:`, error);
     
-    throw error;
+    // จัดการ error แบบละเอียด
+    if (error.response) {
+      // Server responded with error status
+      const errorMessage = error.response.data?.message || error.response.statusText || 'Server Error';
+      console.error(`❌ API Error: ${method.toUpperCase()} ${endpoint}`, {
+        status: error.response.status,
+        message: errorMessage,
+        data: error.response.data
+      });
+      
+      throw error;
+    } else if (error.request) {
+      // Network error
+      console.error(`❌ Network Error: ${method.toUpperCase()} ${endpoint}`, error.message);
+      throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+    } else {
+      // Other error
+      console.error(`❌ API Error: ${method.toUpperCase()} ${endpoint}`, error.message);
+      throw error;
+    }
   }
 };
 
@@ -246,31 +405,13 @@ export async function updatePayment(orderId, formData) {
       formData.append('orderId', orderId);
     }
     
-    // สร้าง instance ของ axios พร้อมกำหนดค่าเริ่มต้น
-    const token = Cookies.get('access_token');
-    const api = axios.create({
-      baseURL: process.env.API_URL,
-      headers: {
-        'Content-Type': 'multipart/form-data', // เปลี่ยนเป็น multipart/form-data
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true,
-      timeout: 30000 // เพิ่ม timeout เป็น 30 วินาที เพราะอัปโหลดไฟล์อาจใช้เวลานาน
-    });
-    
-    console.log('🔄 API Call: POST /api/payments');
-    console.time('API POST /api/payments');
-    
-    const response = await api.post('/api/payments', formData);
-    
-    console.timeEnd('API POST /api/payments');
-    console.log('✅ API Success: POST /api/payments', response.data);
+    const result = await apiCall('post', '/api/payments', formData, true);
     
     return {
       success: true,
       orderId: orderId,
       message: 'อัปเดตข้อมูลการชำระเงินสำเร็จ',
-      orderData: response.data
+      orderData: result
     };
   } catch (error) {
     console.error('Error updating payment:', error);
@@ -375,30 +516,11 @@ export async function getUploadedDocuments(candidateId) {
  */
 export async function uploadDocument(formData) {
   try {
-    // สร้าง instance ของ axios สำหรับอัปโหลดไฟล์
-    const token = Cookies.get('access_token');
-    const api = axios.create({
-      baseURL: process.env.API_URL,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true,
-      timeout: 60000 // เพิ่ม timeout เป็น 60 วินาที เพราะอัปโหลดไฟล์อาจใช้เวลานาน
-    });
-    
-    console.log('🔄 API Call: POST /api/documents/upload');
-    console.time('API POST /api/documents/upload');
-    
-    const response = await api.post('/api/documents/upload', formData);
-    
-    console.timeEnd('API POST /api/documents/upload');
-    console.log('✅ API Success: POST /api/documents/upload', response.data);
-    
+    const result = await apiCall('post', '/api/documents/upload', formData, true);
     return {
       success: true,
       message: 'อัปโหลดเอกสารสำเร็จ',
-      data: response.data
+      data: result
     };
   } catch (error) {
     console.error('Error uploading document:', error);
@@ -1377,5 +1499,19 @@ export async function getOrderCountByUser() {
   } catch (error) {
     console.error('Error fetching order count by user:', error);
     return {};
+  }
+}
+
+/**
+ * ดึงข้อมูลคำสั่งซื้อของผู้ใช้ตาม User ID
+ * @param {string} userId รหัสผู้ใช้
+ * @returns {Promise<Array>} รายการคำสั่งซื้อของผู้ใช้
+ */
+export async function getUserOrders(userId) {
+  try {
+    return apiCall('get', `/api/orders/user/${userId}`);
+  } catch (error) {
+    console.error('Error fetching user orders:', error);
+    throw error;
   }
 }

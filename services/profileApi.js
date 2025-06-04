@@ -7,7 +7,7 @@ import { reloadUserProfile } from './auth';
 const createApiInstance = () => {
   const token = Cookies.get('access_token');
   
-  return axios.create({
+  const instance = axios.create({
     baseURL: process.env.API_URL, // API Server ที่ต้องการเรียกใช้
     headers: {
       'Content-Type': 'application/json',
@@ -16,6 +16,64 @@ const createApiInstance = () => {
     withCredentials: true,
     timeout: 15000 // กำหนด timeout เป็น 15 วินาที
   });
+  
+  // เพิ่ม interceptor สำหรับจัดการ refresh token
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      console.error(`❌ API Error: ${error.response?.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+      
+      // เมื่อได้รับ 401 Unauthorized และยังไม่เคยพยายาม refresh
+      if (error.response?.status === 401 && !error.config._retry) {
+        console.log('🔄 Attempting to refresh token...');
+        error.config._retry = true;
+        
+        try {
+          console.log('📤 Calling refresh token API...');
+          // ใช้ axios แยก เพื่อไม่ให้เกิด loop
+          const refreshResponse = await axios.post('/api/auth/refresh-token', {}, { 
+            withCredentials: true 
+          });
+          
+          console.log('📥 Refresh token response:', refreshResponse.data);
+          
+          if (refreshResponse.data.success) {
+            console.log('✅ Token refreshed successfully! Retrying original request...');
+            
+            // เพิ่มการ emit event เมื่อ refresh token สำเร็จ
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth:token-refreshed'));
+            }
+            
+            // อัปเดต token ใหม่
+            const newToken = Cookies.get('access_token');
+            if (newToken) {
+              error.config.headers.Authorization = `Bearer ${newToken}`;
+            }
+            
+            // สร้าง instance ใหม่และส่งคำขอเดิมอีกครั้ง
+            return axios(error.config);
+          } else {
+            console.log('❌ Token refresh failed with success=false');
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+            return Promise.reject(error);
+          }
+        } catch (refreshError) {
+          console.error('❌ Error during token refresh:', refreshError);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+          return Promise.reject(refreshError);
+        }
+      }
+      
+      return Promise.reject(error);
+    }
+  );
+  
+  return instance;
 };
 
 // สร้าง instance ของ axios สำหรับ multipart/form-data
@@ -317,6 +375,36 @@ export async function deleteUser(userId) {
   const response = await apiCall('delete', `/users/${userId}`);
   return response;
 }
+/**
+ * อัปเดตข้อมูลผู้ใช้โดย admin
+ * @param {string} userId ID ของผู้ใช้ที่ต้องการแก้ไข
+ * @param {Object} profileData ข้อมูลโปรไฟล์ที่ต้องการอัปเดต
+ * @returns {Promise<Object>} ผลลัพธ์การอัปเดต
+ */
+export async function updateUserByAdmin(userId, profileData) {
+  // ตรวจสอบข้อมูลพื้นฐานก่อนส่ง
+  if (profileData.username && !profileData.username.trim()) {
+    return {
+      success: false,
+      errorCode: 'VALIDATION_ERROR',
+      message: 'ชื่อผู้ใช้เป็นสิ่งจำเป็น'
+    };
+  }
+  
+  // ตรวจสอบความยาวของรหัสผ่านใหม่ (ถ้ามี)
+  if (profileData.newPassword && profileData.newPassword.length < 6) {
+    return {
+      success: false,
+      errorCode: 'VALIDATION_ERROR',
+      message: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร'
+    };
+  }
+  
+  // เรียกใช้ API เพื่ออัปเดตข้อมูล
+  const response = await apiCall('patch', `/users/admin/user/${userId}`, profileData);
+  
+  return response;
+}
 
 export default {
   getMyProfile,
@@ -327,5 +415,6 @@ export default {
   getAllUsers,
   getUsersByRole,
   updateUserRole,
-  deleteUser          // เพิ่มเข้ามาใหม่
+  deleteUser,
+  updateUserByAdmin    // เพิ่มฟังก์ชันใหม่
 };
