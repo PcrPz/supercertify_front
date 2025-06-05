@@ -2,14 +2,21 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 
-
 // ตั้งค่า cookie options
-const COOKIE_OPTIONS = {
+const ACCESS_TOKEN_OPTIONS = {
   httpOnly: false,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict',
   path: '/',
-  maxAge: 60 * 60 * 24 * 7, // 7 วัน
+  maxAge: 60 * 60 * 5, // 5 ชั่วโมง ตรงกับ JWT_EXPIRES_IN=5h
+};
+
+const REFRESH_TOKEN_OPTIONS = {
+  httpOnly: false, 
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  path: '/',
+  maxAge: 60 * 60 * 24 * 7, // 7 วัน ตรงกับ JWT_REFRESH_EXPIRES_IN=7d
 };
 
 export async function POST(request) {
@@ -29,9 +36,14 @@ export async function POST(request) {
       success: true
     });
     
-    // ตั้งค่า httpOnly cookie
+    // ตั้งค่า access token cookie
     if (response.data.access_token) {
-      res.cookies.set('access_token', response.data.access_token, COOKIE_OPTIONS);
+      res.cookies.set('access_token', response.data.access_token, ACCESS_TOKEN_OPTIONS);
+    }
+    
+    // ตั้งค่า refresh token cookie
+    if (response.data.refresh_token) {
+      res.cookies.set('refresh_token', response.data.refresh_token, REFRESH_TOKEN_OPTIONS);
     }
     
     return res;

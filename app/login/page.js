@@ -31,12 +31,15 @@ function LoginContent() {
       
       console.log('Login successful:', response.data);
       
+      // ต้องแน่ใจว่าเราเรียก router.refresh() ก่อน router.push()
+      // เพื่อให้ Next.js ดึงข้อมูล Server Components ใหม่ก่อนที่จะเปลี่ยนหน้า
+      router.refresh(); 
+      
       // Redirect ไปยัง callback URL หรือ dashboard
       if (callbackUrl) {
-        router.push(callbackUrl);
+       window.location.href = callbackUrl
       } else {
-        router.push('/dashboard');
-        router.refresh()
+       window.location.href = '/dashboard';
       }
       
     } catch (err) {
@@ -46,6 +49,7 @@ function LoginContent() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex flex-col">
