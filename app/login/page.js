@@ -33,13 +33,18 @@ function LoginContent() {
       
       // ต้องแน่ใจว่าเราเรียก router.refresh() ก่อน router.push()
       // เพื่อให้ Next.js ดึงข้อมูล Server Components ใหม่ก่อนที่จะเปลี่ยนหน้า
-      router.refresh(); 
+      router.refresh();
       
-      // Redirect ไปยัง callback URL หรือ dashboard
+      // ตรวจสอบ role และ redirect ตาม role
+      const userRole = response.data.user?.role;
+      
+      // Redirect ไปยัง callback URL หรือตาม role
       if (callbackUrl) {
-       window.location.href = callbackUrl
+        window.location.href = callbackUrl;
+      } else if (userRole === 'admin') {
+        window.location.href = '/admin/dashboard';
       } else {
-       window.location.href = '/dashboard';
+        window.location.href = '/dashboard';
       }
       
     } catch (err) {
