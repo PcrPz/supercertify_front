@@ -5,9 +5,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronDown, LayoutDashboard, UserCircle, Bell, LogOut, Settings, Users, CreditCard, Shield, Gift, Percent } from 'lucide-react';
 import LogoutButton from './LogoutButton';
+import { useAuth } from '@/context/AuthContext';
 
 // User Dropdown Component
-const UserDropdown = ({ user }) => {
+const UserDropdown = () => {
+  // ใช้ useAuth() เพื่อดึงข้อมูล user จาก context
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   
@@ -27,6 +30,8 @@ const UserDropdown = ({ user }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  if (!user) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -184,15 +189,94 @@ const UserDropdown = ({ user }) => {
   );
 };
 
-export default function Navbar({ user, activePath }) {
+export default function Navbar({ activePath }) {
+  const { isAuthenticated, user, isLoading } = useAuth();
+  
+  // เพิ่ม state สำหรับควบคุมการ render บน client-side
+  const [mounted, setMounted] = useState(false);
+  
+  // เซ็ต mounted เป็น true หลังจาก client-side hydration เสร็จสมบูรณ์
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // สำหรับ server-side rendering และระหว่าง hydration
+  // ให้แสดง skeleton ที่แน่นอน (ไม่มีเงื่อนไข) เพื่อป้องกัน hydration mismatch
+  if (!mounted) {
+    return (
+      <nav className="bg-white shadow-md sticky top-0 z-50 w-full">
+        <div className="container mx-auto px-4 py-3 max-w-7xl">
+          <div className="flex justify-between items-center">
+            {/* Logo */}
+            <div className="flex items-center">
+              <div className="w-[220px] h-[50px] bg-gray-200 animate-pulse rounded"></div>
+            </div>
+            
+            {/* Skeleton menu */}
+            <div className="flex space-x-8 relative">
+              <div className="w-32 h-6 bg-gray-200 animate-pulse rounded"></div>
+              <div className="w-32 h-6 bg-gray-200 animate-pulse rounded"></div>
+              <div className="w-32 h-6 bg-gray-200 animate-pulse rounded"></div>
+            </div>
+            
+            {/* Skeleton auth */}
+            <div className="flex items-center space-x-4">
+              <div className="w-24 h-10 bg-gray-200 animate-pulse rounded-full"></div>
+              <div className="w-24 h-10 bg-gray-200 animate-pulse rounded-full"></div>
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
+  // เมื่อ mounted เป็น true แล้ว (client-side rendering) ถึงจะแสดง loading state ตามปกติ
+  if (isLoading) {
+    return (
+      <nav className="bg-white shadow-md sticky top-0 z-50 w-full">
+        <div className="container mx-auto px-4 py-3 max-w-7xl">
+          <div className="flex justify-between items-center">
+            {/* Logo */}
+            <Link href="/">
+              <div className="flex items-center">
+                <Image
+                  src="/LogoSC.png"
+                  alt="SuperCertify Logo"
+                  width={220}
+                  height={50}
+                  className="cursor-pointer"
+                  style={{ height: 'auto' }}
+                />
+              </div>
+            </Link>
+            
+            {/* Skeleton for menu items */}
+            <div className="flex space-x-8 relative">
+              <div className="w-32 h-6 bg-gray-200 animate-pulse rounded"></div>
+              <div className="w-32 h-6 bg-gray-200 animate-pulse rounded"></div>
+              <div className="w-32 h-6 bg-gray-200 animate-pulse rounded"></div>
+            </div>
+            
+            {/* Skeleton for auth buttons */}
+            <div className="flex items-center space-x-4">
+              <div className="w-24 h-10 bg-gray-200 animate-pulse rounded-full"></div>
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+  
   // ฟังก์ชันตรวจสอบ path ที่ active
   const isActiveLink = (path) => {
-    return activePath.startsWith(path);
+    return activePath?.startsWith(path);
   };
 
   // เช็คว่าเป็น admin หรือไม่
   const isAdmin = user?.role === 'admin';
 
+
+  // แสดง Navbar จริงเมื่อไม่ได้ loading แล้ว
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50 w-full">
       <div className="container mx-auto px-4 py-3 max-w-7xl">
@@ -206,6 +290,7 @@ export default function Navbar({ user, activePath }) {
                 width={220}
                 height={50}
                 className="cursor-pointer"
+                style={{ height: 'auto' }} // ระบุ height: auto เพื่อแก้ warning
               />
             </div>
           </Link>
@@ -213,7 +298,7 @@ export default function Navbar({ user, activePath }) {
           {/* Desktop Menu - แสดงเมนูหลักตามสิทธิ์ */}
           <div className="flex space-x-8 relative">
             {isAdmin ? (
-              // เมนูหลักสำหรับ Admin (ถ้าต้องการแสดงเมนูเฉพาะ)
+              // เมนูหลักสำหรับ Admin
               <>
                 <Link 
                   href="/admin/dashboard" 
@@ -241,14 +326,14 @@ export default function Navbar({ user, activePath }) {
                 </Link>
                 <Link 
                   href="/admin/coupon-management" 
-                  className={`text-gray-700 hover:text-[#444DDA] relative 
+                  className={`text-gray-700 hover:text-red-600 relative 
                     ${isActiveLink('/admin/coupon-management') 
-                      ? 'text-[#444DDA] font-semibold' 
+                      ? 'text-red-600 font-semibold' 
                       : ''}`}
                 >
                   Coupons
                   {isActiveLink('/admin/coupon-management') && (
-                    <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-[#444DDA]"></span>
+                    <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-red-600"></span>
                   )}
                 </Link>
                 <Link 
@@ -258,7 +343,7 @@ export default function Navbar({ user, activePath }) {
                       ? 'text-red-600 font-semibold' 
                       : ''}`}
                 >
-                  User-Management
+                  User Management
                   {isActiveLink('/admin/user-management') && (
                     <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-red-600"></span>
                   )}
@@ -309,8 +394,8 @@ export default function Navbar({ user, activePath }) {
           
           {/* Authentication/User Section */}
           <div className="flex items-center space-x-4">
-            {user ? (
-              <UserDropdown user={user} />
+            {isAuthenticated ? (
+              <UserDropdown />
             ) : (
               <>
                 <Link href="/register" className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-medium py-2 px-4 rounded-full">
@@ -326,4 +411,4 @@ export default function Navbar({ user, activePath }) {
       </div>
     </nav>
   );
-};
+}

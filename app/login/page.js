@@ -31,12 +31,20 @@ function LoginContent() {
       
       console.log('Login successful:', response.data);
       
-      // Redirect ไปยัง callback URL หรือ dashboard
+      // ต้องแน่ใจว่าเราเรียก router.refresh() ก่อน router.push()
+      // เพื่อให้ Next.js ดึงข้อมูล Server Components ใหม่ก่อนที่จะเปลี่ยนหน้า
+      router.refresh();
+      
+      // ตรวจสอบ role และ redirect ตาม role
+      const userRole = response.data.user?.role;
+      
+      // Redirect ไปยัง callback URL หรือตาม role
       if (callbackUrl) {
-        router.push(callbackUrl);
+        window.location.href = callbackUrl;
+      } else if (userRole === 'admin') {
+        window.location.href = '/admin/dashboard';
       } else {
-        router.push('/dashboard');
-        router.refresh()
+        window.location.href = '/dashboard';
       }
       
     } catch (err) {
@@ -46,6 +54,7 @@ function LoginContent() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex flex-col">

@@ -1,4 +1,4 @@
-// app/admin/layout.js
+// app/admin/layout.js ปรับปรุงใหม่
 'use client'
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';

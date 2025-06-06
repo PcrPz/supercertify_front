@@ -3,6 +3,58 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getOrderById, updatePayment } from '@/services/apiService';
 import { sendPaymentNotificationToAdmin } from '@/services/emailService';
+import { getPaymentMethods } from '@/services/PaymentSettingsApi';
+
+
+
+// คอมโพเนนต์ Modal สำหรับขยายรูปภาพ
+function ImageModal({ isOpen, onClose, imageUrl, altText }) {
+  // เมื่อ Modal ถูกเรียกใช้งาน ให้ล็อคการ scroll
+  if (isOpen && typeof window !== 'undefined') {
+    document.body.style.overflow = 'hidden';
+  }
+  
+  // เมื่อปิด Modal ให้คืนค่า scroll
+  const handleClose = () => {
+    if (typeof window !== 'undefined') {
+      document.body.style.overflow = 'auto';
+    }
+    onClose();
+  };
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 cursor-pointer backdrop-blur-sm transition-all duration-300"
+      style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      }} 
+      onClick={handleClose}
+    >
+      <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-xl shadow-2xl transition-transform duration-300 transform scale-100">
+        <button 
+          className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-all duration-200 hover:scale-110 z-10"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClose();
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <img 
+          src={imageUrl} 
+          alt={altText} 
+          className="max-h-[90vh] max-w-full object-contain bg-white rounded-xl" 
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    </div>
+  );
+}
+
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -16,6 +68,10 @@ export default function PaymentPage() {
   // ข้อมูลการชำระเงิน
   const [paymentMethod, setPaymentMethod] = useState('qr_payment');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ข้อมูล Payment Methods จาก API
+  const [paymentMethods, setPaymentMethods] = useState(null);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   
   // ข้อมูลการโอนเงิน (สำหรับทั้งสองวิธี)
   const [transferInfo, setTransferInfo] = useState({
@@ -26,6 +82,55 @@ export default function PaymentPage() {
     receipt: null,
     receiptPreview: null
   });
+
+  // Modal state สำหรับขยายรูปภาพ
+  const [imageModal, setImageModal] = useState({
+    isOpen: false,
+    imageUrl: '',
+    altText: ''
+  });
+
+  // เปิด Modal แสดงรูปภาพขยาย
+  const openImageModal = (imageUrl, altText) => {
+    setImageModal({
+      isOpen: true,
+      imageUrl,
+      altText
+    });
+  };
+
+  // ปิด Modal
+  const closeImageModal = () => {
+    setImageModal({
+      ...imageModal,
+      isOpen: false
+    });
+  };
+  
+  // โหลดข้อมูล Payment Methods
+  useEffect(() => {
+    const loadPaymentMethods = async () => {
+      try {
+        const data = await getPaymentMethods();
+        setPaymentMethods(data);
+        console.log('Payment methods loaded:', data);
+        
+        // ตั้งค่า default payment method ตามที่เปิดใช้งาน
+        if (data.qr_payment?.enabled) {
+          setPaymentMethod('qr_payment');
+        } else if (data.bank_transfer?.enabled) {
+          setPaymentMethod('bank_transfer');
+        }
+      } catch (error) {
+        console.error('Error loading payment methods:', error);
+        // ใช้ข้อมูล default ถ้าโหลดไม่ได้
+      } finally {
+        setPaymentMethodsLoading(false);
+      }
+    };
+
+    loadPaymentMethods();
+  }, []);
 
   useEffect(() => {
     if (!orderId) {
@@ -58,6 +163,13 @@ export default function PaymentPage() {
   
   // จัดการการเปลี่ยนวิธีการชำระเงิน
   const handlePaymentMethodChange = (method) => {
+    // ตรวจสอบว่า method นั้นเปิดใช้งานหรือไม่
+    if (method === 'qr_payment' && !paymentMethods?.qr_payment?.enabled) {
+      return;
+    }
+    if (method === 'bank_transfer' && !paymentMethods?.bank_transfer?.enabled) {
+      return;
+    }
     setPaymentMethod(method);
   };
   
@@ -84,7 +196,7 @@ export default function PaymentPage() {
       reader.readAsDataURL(file);
     }
   };
-  
+
   // อัปโหลดสลิปไปยังเซิร์ฟเวอร์ (simulatedในตัวอย่างนี้) และได้ URL
   const uploadReceipt = async (file) => {
     // ในสถานการณ์จริง คุณต้องอัปโหลดไฟล์ไปยังเซิร์ฟเวอร์และรับ URL กลับมา
@@ -97,64 +209,64 @@ export default function PaymentPage() {
     });
   };
   
-// จัดการการส่งข้อมูลการชำระเงิน
-const handleConfirmPayment = async (e) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-  
-  try {
-    // ตรวจสอบข้อมูลที่จำเป็น
-    if (!transferInfo.name || !transferInfo.date || !transferInfo.amount || !transferInfo.reference || !transferInfo.receipt) {
-      throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน และอัปโหลดสลิปการโอนเงิน');
-    }
+  // จัดการการส่งข้อมูลการชำระเงิน
+  const handleConfirmPayment = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     
-    // สร้าง FormData สำหรับส่งข้อมูลพร้อมไฟล์
-    const formData = new FormData();
-    
-    // เพิ่มข้อมูลการชำระเงิน
-    formData.append('paymentMethod', paymentMethod);
-    formData.append('orderId', orderId);
-    
-    // เพิ่มข้อมูลการโอนเงิน
-    formData.append('transferInfo.name', transferInfo.name);
-    formData.append('transferInfo.date', transferInfo.date);
-    formData.append('transferInfo.amount', transferInfo.amount);
-    formData.append('transferInfo.reference', transferInfo.reference);
-    
-    // เพิ่มไฟล์สลิป
-    if (transferInfo.receipt) {
-      formData.append('receipt', transferInfo.receipt);
-    }
-    
-    // ใช้ฟังก์ชัน updatePayment จาก apiService
-    const result = await updatePayment(orderId, formData);
-    
-    if (result.success) {
-      // ส่งอีเมลแจ้งเตือนแอดมิน
-      try {
-        const orderData = await getOrderById(orderId);
-        await sendPaymentNotificationToAdmin(orderData);
-        
-        // เพิ่มการหน่วงเวลา 2 วินาที เพื่อให้ข้อมูลถูกบันทึกสมบูรณ์
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // ไปยังหน้าแสดงผลการชำระเงิน
-        router.push(`/background-check/payment-success?orderId=${orderId}`);
-      } catch (emailError) {
-        console.error('Failed to verify payment:', emailError);
-        // แม้จะเกิดข้อผิดพลาดในการตรวจสอบ ก็ยังให้ไปยังหน้าถัดไป
-        window.location.href = `//background-check/payment-success?orderId=${orderId}`;
+    try {
+      // ตรวจสอบข้อมูลที่จำเป็น
+      if (!transferInfo.name || !transferInfo.date || !transferInfo.amount || !transferInfo.reference || !transferInfo.receipt) {
+        throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน และอัปโหลดสลิปการโอนเงิน');
       }
-    } else {
-      throw new Error(result.message || 'การชำระเงินล้มเหลว');
+      
+      // สร้าง FormData สำหรับส่งข้อมูลพร้อมไฟล์
+      const formData = new FormData();
+      
+      // เพิ่มข้อมูลการชำระเงิน
+      formData.append('paymentMethod', paymentMethod);
+      formData.append('orderId', orderId);
+      
+      // เพิ่มข้อมูลการโอนเงิน
+      formData.append('transferInfo.name', transferInfo.name);
+      formData.append('transferInfo.date', transferInfo.date);
+      formData.append('transferInfo.amount', transferInfo.amount);
+      formData.append('transferInfo.reference', transferInfo.reference);
+      
+      // เพิ่มไฟล์สลิป
+      if (transferInfo.receipt) {
+        formData.append('receipt', transferInfo.receipt);
+      }
+      
+      // ใช้ฟังก์ชัน updatePayment จาก apiService
+      const result = await updatePayment(orderId, formData);
+      
+      if (result.success) {
+        // ส่งอีเมลแจ้งเตือนแอดมิน
+        try {
+          const orderData = await getOrderById(orderId);
+          await sendPaymentNotificationToAdmin(orderData);
+          
+          // เพิ่มการหน่วงเวลา 2 วินาที เพื่อให้ข้อมูลถูกบันทึกสมบูรณ์
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // ไปยังหน้าแสดงผลการชำระเงิน
+          router.push(`/background-check/payment-success?orderId=${orderId}`);
+        } catch (emailError) {
+          console.error('Failed to verify payment:', emailError);
+          // แม้จะเกิดข้อผิดพลาดในการตรวจสอบ ก็ยังให้ไปยังหน้าถัดไป
+          window.location.href = `/background-check/payment-success?orderId=${orderId}`;
+        }
+      } else {
+        throw new Error(result.message || 'การชำระเงินล้มเหลว');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert(`เกิดข้อผิดพลาดในการส่งข้อมูลชำระเงิน: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (error) {
-    console.error('Payment error:', error);
-    alert(`เกิดข้อผิดพลาดในการส่งข้อมูลชำระเงิน: ${error.message}`);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
   
   // หน้าโหลดข้อมูล
   if (loading) {
@@ -206,9 +318,42 @@ const handleConfirmPayment = async (e) => {
       </div>
     );
   }
-  
+
+  // ตรวจสอบว่ามี payment method ที่เปิดใช้งานหรือไม่
+  const hasEnabledPaymentMethod = paymentMethods?.qr_payment?.enabled || paymentMethods?.bank_transfer?.enabled;
+
+  if (!hasEnabledPaymentMethod) {
+    return (
+      <div className="container max-w-2xl mx-auto p-8 flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="bg-yellow-100 text-yellow-800 p-6 rounded-xl mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <p className="text-lg font-medium">ขณะนี้ยังไม่เปิดให้บริการการชำระเงิน</p>
+            <p className="text-sm mt-2">กรุณาติดต่อเจ้าหน้าที่เพื่อดำเนินการชำระเงิน</p>
+          </div>
+          <button 
+            onClick={() => router.push('/background-check/services')}
+            className="bg-[#444DDA] text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+          >
+            กลับไปเลือกบริการ
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container max-w-2xl mx-auto p-8">
+      {/* Modal สำหรับแสดงรูปภาพขยาย */}
+      <ImageModal 
+        isOpen={imageModal.isOpen} 
+        onClose={closeImageModal} 
+        imageUrl={imageModal.imageUrl} 
+        altText={imageModal.altText} 
+      />
+      
       <h1 className="text-3xl font-bold text-center mb-6">ชำระเงิน</h1>
       
       {/* สรุปคำสั่งซื้อ */}
@@ -250,45 +395,75 @@ const handleConfirmPayment = async (e) => {
         
         <div className="px-8 py-6">
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <button
-              onClick={() => handlePaymentMethodChange('qr_payment')}
-              className={`p-4 rounded-xl border-2 transition-all ${paymentMethod === 'qr_payment' ? 'border-[#444DDA] bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
-            >
-              <div className="flex flex-col items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-10 w-10 mb-2 ${paymentMethod === 'qr_payment' ? 'text-[#444DDA]' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                </svg>
-                <span className={`text-sm font-medium ${paymentMethod === 'qr_payment' ? 'text-[#444DDA]' : 'text-gray-600'}`}>QR พร้อมเพย์</span>
-              </div>
-            </button>
+            {/* QR Payment Button */}
+            {paymentMethods?.qr_payment?.enabled && (
+              <button
+                onClick={() => handlePaymentMethodChange('qr_payment')}
+                className={`p-4 rounded-xl border-2 transition-all ${paymentMethod === 'qr_payment' ? 'border-[#444DDA] bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
+              >
+                <div className="flex flex-col items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-10 w-10 mb-2 ${paymentMethod === 'qr_payment' ? 'text-[#444DDA]' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                  <span className={`text-sm font-medium ${paymentMethod === 'qr_payment' ? 'text-[#444DDA]' : 'text-gray-600'}`}>
+                    {paymentMethods.qr_payment.description || 'QR พร้อมเพย์'}
+                  </span>
+                </div>
+              </button>
+            )}
             
-            <button
-              onClick={() => handlePaymentMethodChange('bank_transfer')}
-              className={`p-4 rounded-xl border-2 transition-all ${paymentMethod === 'bank_transfer' ? 'border-[#444DDA] bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
-            >
-              <div className="flex flex-col items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-10 w-10 mb-2 ${paymentMethod === 'bank_transfer' ? 'text-[#444DDA]' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-                </svg>
-                <span className={`text-sm font-medium ${paymentMethod === 'bank_transfer' ? 'text-[#444DDA]' : 'text-gray-600'}`}>โอนเงินผ่านธนาคาร</span>
-              </div>
-            </button>
+           {/* Bank Transfer Button */}
+            {paymentMethods?.bank_transfer?.enabled && (
+              <button
+                onClick={() => handlePaymentMethodChange('bank_transfer')}
+                className={`p-4 rounded-xl border-2 transition-all ${paymentMethod === 'bank_transfer' ? 'border-[#444DDA] bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
+              >
+                <div className="flex flex-col items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-10 w-10 mb-2 ${paymentMethod === 'bank_transfer' ? 'text-[#444DDA]' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                  </svg>
+                  <span className={`text-sm font-medium ${paymentMethod === 'bank_transfer' ? 'text-[#444DDA]' : 'text-gray-600'}`}>
+                    {paymentMethods.bank_transfer.description || 'โอนเงินผ่านธนาคาร'}
+                  </span>
+                </div>
+              </button>
+            )}
           </div>
           
           {/* แสดงรายละเอียดตามวิธีการชำระเงิน */}
-          {paymentMethod === 'qr_payment' && (
+          {paymentMethod === 'qr_payment' && paymentMethods?.qr_payment?.enabled && (
             <div className="border-t border-gray-200 pt-6">
               <div className="text-center">
                 <h4 className="font-medium mb-4">สแกน QR Code เพื่อชำระเงิน</h4>
                 
-                {/* QR Code สมมติ (ในระบบจริงควรสร้าง QR Code จริง) */}
-                <div className="bg-white border-4 border-[#444DDA] w-64 h-64 mx-auto mb-4 flex items-center justify-center">
-                  <div className="text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                    </svg>
-                    <p className="text-sm text-gray-500 mt-2">ตัวอย่าง QR Code</p>
-                  </div>
+                {/* QR Code - แสดงรูปจริงถ้ามี หรือ placeholder */}
+                <div 
+                  className="bg-white border-4 border-[#444DDA] w-64 h-64 mx-auto mb-4 flex items-center justify-center cursor-pointer relative group"
+                  onClick={() => paymentMethods.qr_payment.qr_image && openImageModal(paymentMethods.qr_payment.qr_image, 'QR Code สำหรับชำระเงิน')}
+                >
+                  {paymentMethods.qr_payment.qr_image ? (
+                    <>
+                    <img 
+                      src={paymentMethods.qr_payment.qr_image} 
+                      alt="QR Code สำหรับชำระเงิน"
+                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-blue-900 bg-opacity-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-hover:bg-opacity-30 transition-all duration-300">
+                      <div className="bg-white p-3 rounded-full transform scale-0 group-hover:scale-100 transition-transform duration-300 shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                    </>
+                  ) : (
+                    <div className="text-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                      </svg>
+                      <p className="text-sm text-gray-500 mt-2">QR Code</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6 text-left">
@@ -296,11 +471,11 @@ const handleConfirmPayment = async (e) => {
                   <ul className="space-y-2 text-sm">
                     <li className="flex justify-between">
                       <span className="text-gray-600">ชื่อบัญชี:</span>
-                      <span className="font-medium">บริษัท SuperCertify จำกัด</span>
+                      <span className="font-medium">{paymentMethods.qr_payment.account_name}</span>
                     </li>
                     <li className="flex justify-between">
                       <span className="text-gray-600">หมายเลขพร้อมเพย์:</span>
-                      <span className="font-medium">0-9999-99999-99-9</span>
+                      <span className="font-medium">{paymentMethods.qr_payment.account_number}</span>
                     </li>
                     <li className="flex justify-between">
                       <span className="text-gray-600">จำนวนเงิน:</span>
@@ -312,7 +487,7 @@ const handleConfirmPayment = async (e) => {
             </div>
           )}
           
-          {paymentMethod === 'bank_transfer' && (
+          {paymentMethod === 'bank_transfer' && paymentMethods?.bank_transfer?.enabled && (
             <div className="border-t border-gray-200 pt-6">
               <div className="text-center mb-6">
                 <h4 className="font-medium mb-4">โอนเงินเข้าบัญชีธนาคาร</h4>
@@ -322,15 +497,15 @@ const handleConfirmPayment = async (e) => {
                   <ul className="space-y-2 text-sm">
                     <li className="flex justify-between">
                       <span className="text-gray-600">ธนาคาร:</span>
-                      <span className="font-medium">ธนาคารกสิกรไทย</span>
+                      <span className="font-medium">{paymentMethods.bank_transfer.bank_name}</span>
                     </li>
                     <li className="flex justify-between">
                       <span className="text-gray-600">ชื่อบัญชี:</span>
-                      <span className="font-medium">บริษัท SuperCertify จำกัด</span>
+                      <span className="font-medium">{paymentMethods.bank_transfer.account_name}</span>
                     </li>
                     <li className="flex justify-between">
                       <span className="text-gray-600">เลขบัญชี:</span>
-                      <span className="font-medium">XXX-X-XXXXX-X</span>
+                      <span className="font-medium">{paymentMethods.bank_transfer.account_number}</span>
                     </li>
                     <li className="flex justify-between">
                       <span className="text-gray-600">จำนวนเงิน:</span>
@@ -410,8 +585,22 @@ const handleConfirmPayment = async (e) => {
               />
               
               {transferInfo.receiptPreview && (
-                <div className="mt-2 border rounded-xl p-2 overflow-hidden">
-                  <img src={transferInfo.receiptPreview} alt="สลิปการโอนเงิน" className="max-h-44 mx-auto" />
+                <div 
+                  className="mt-2 border rounded-xl p-2 overflow-hidden cursor-pointer group relative"
+                  onClick={() => openImageModal(transferInfo.receiptPreview, 'สลิปการโอนเงิน')}
+                >
+                <img 
+                  src={transferInfo.receiptPreview} 
+                  alt="สลิปการโอนเงิน" 
+                  className="max-h-44 mx-auto transition-transform duration-300 group-hover:scale-105" 
+                />
+                <div className="absolute inset-0 bg-blue-900 bg-opacity-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-hover:bg-opacity-30 transition-all duration-300">
+                  <div className="bg-white p-3 rounded-full transform scale-0 group-hover:scale-100 transition-transform duration-300 shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
                 </div>
               )}
             </div>

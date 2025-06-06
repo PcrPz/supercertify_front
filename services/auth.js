@@ -84,11 +84,30 @@ export const getCurrentUser = async () => {
 
 
 // ฟังก์ชันสำหรับ redirect ไปยังหน้าต่างๆ หลังจาก authentication
-export const handleRedirectAfterAuth = (router, callbackUrl) => {
-  if (callbackUrl) {
-    router.push(callbackUrl);
-  } else {
-    router.push('/dashboard');
+export const handleRedirectAfterAuth = async (router, callbackUrl) => {
+  try {
+    // ดึงข้อมูลผู้ใช้ปัจจุบัน
+    const { authenticated, user } = await checkAuthStatus();
+    
+    if (!authenticated) {
+      // ถ้าไม่ได้ login ให้ไปที่หน้า login
+      router.push('/login');
+      return;
+    }
+    
+    if (callbackUrl) {
+      // ถ้ามี callbackUrl ให้ไปที่ callbackUrl
+      router.push(callbackUrl);
+    } else if (user.role === 'admin') {
+      // ถ้าเป็น admin ให้ไปที่ admin dashboard
+      router.push('/admin/dashboard');
+    } else {
+      // ถ้าเป็น user ปกติให้ไปที่ dashboard
+      router.push('/dashboard');
+    }
+  } catch (error) {
+    console.error('Redirect error:', error);
+    router.push('/login');
   }
 };
 

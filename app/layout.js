@@ -1,9 +1,10 @@
+// app/layout.js
 import { Fustat } from 'next/font/google';
 import Footer from '@/components/Footer';
 import './globals.css';
 import ServerNavbar from '@/components/ServerNavbar';
+import { AuthProvider } from '@/context/AuthContext';
 
-// กำหนดค่า Google font
 const fustat = Fustat({
   weight: ['400', '500', '700'],
   subsets: ['latin'],
@@ -18,13 +19,15 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="th">
-      <body className={`${fustat.variable} font-fustat`}>
-        <ServerNavbar/>
-        <main>
-          {children}
-        </main>
-        <Footer/>
+    <html lang="th" suppressHydrationWarning={true}>
+      <body className={`${fustat.variable} font-fustat flex flex-col min-h-screen`}>
+        <AuthProvider>
+          <ServerNavbar />
+          <main className="flex-grow">
+            {children}
+          </main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

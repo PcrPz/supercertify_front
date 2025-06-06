@@ -42,7 +42,7 @@ const Register = () => {
         };
         
         await register(registerData);
-        router.push('/');
+        window.location.href = '/';
         router.refresh()
         
       } catch (err) {
