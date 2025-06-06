@@ -161,9 +161,13 @@ export default function DocumentUploadPage() {
   };
   
 const handleSubmitService = async (serviceId) => {
-    // ตรวจสอบว่ามีไฟล์ที่ต้องอัปโหลดหรือไม่
-    const service = services.find(s => s.id === serviceId);
-    if (!service) return;
+  console.log('🔍 === DEBUG DOCUMENT UPLOAD ===');
+  
+  const service = services.find(s => s.id === serviceId);
+  if (!service) return;
+  
+  console.log('📋 Service:', service.name);
+  console.log('📄 Documents in service:', service.documents);
     
     // ตรวจสอบว่าต้องอัปโหลดเอกสารครบหรือไม่
     const requiredDocs = service.documents.filter(doc => doc.required);
@@ -186,35 +190,54 @@ const handleSubmitService = async (serviceId) => {
     
     setIsSubmitting(true);
     
-    try {
-      // อัปโหลดเอกสารทีละรายการ - แก้ไขจากตรงนี้
-      const uploadPromises = [];
+  try {
+    const uploadPromises = [];
+    
+    for (const doc of service.documents) {
+      const fileKey = `${serviceId}_${doc.id}`;
+      const newFile = uploadedFiles[fileKey];
       
-      for (const doc of service.documents) {
-        const fileKey = `${serviceId}_${doc.id}`;
-        const newFile = uploadedFiles[fileKey];
-        
-        // ข้ามถ้าไม่มีไฟล์ใหม่และมีไฟล์เดิมอยู่แล้ว
-        if (!newFile && existingDocuments[fileKey]) {
-          continue;
-        }
-        
-        // ข้ามถ้าไม่มีไฟล์ใหม่และไฟล์นี้ไม่จำเป็น
-        if (!newFile && !doc.required) {
-          continue;
-        }
-        
-        if (newFile) {
-          const formData = new FormData();
-          formData.append('file', newFile.file);
-          formData.append('candidateId', candidateId);
-          formData.append('serviceId', serviceId);
-          formData.append('documentType', doc.id);
-          
-          // เพิ่ม Promise เข้าไปใน array - ไม่ต้องใส่ map และ filter แล้ว
-          uploadPromises.push(uploadDocument(formData));
-        }
+      console.log(`📂 Processing document:`, {
+        docId: doc.id,
+        docName: doc.name,
+        hasNewFile: !!newFile,
+        hasExisting: !!existingDocuments[fileKey]
+      });
+      
+      if (!newFile && existingDocuments[fileKey]) {
+        console.log(`⏭️ Skipping ${doc.id} - already exists`);
+        continue;
       }
+      
+      if (!newFile && !doc.required) {
+        console.log(`⏭️ Skipping ${doc.id} - not required`);
+        continue;
+      }
+      
+      if (newFile) {
+        console.log(`📤 Preparing upload for:`, {
+          originalDocId: doc.id,
+          fileName: newFile.file.name,
+          fileSize: newFile.file.size
+        });
+        
+        const formData = new FormData();
+        formData.append('file', newFile.file);
+        formData.append('candidateId', candidateId);
+        formData.append('serviceId', serviceId);
+        formData.append('documentType', doc.id);
+        
+        // 🔍 Debug: แสดงข้อมูลที่จะส่งไป
+        console.log(`🚀 FormData contents:`, {
+          candidateId: candidateId,
+          serviceId: serviceId,
+          documentType: doc.id,
+          fileName: newFile.file.name
+        });
+        
+        uploadPromises.push(uploadDocument(formData));
+      }
+    }
       
       // ถ้าไม่มีไฟล์ที่ต้องอัปโหลด
       if (uploadPromises.length === 0) {

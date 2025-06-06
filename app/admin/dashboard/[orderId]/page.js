@@ -136,6 +136,18 @@ export default function AdminOrderDetailPage() {
     };
     return statusMap[status] || 'รอผล';
   };
+
+  const truncateFileName = (fileName, maxLength = 30) => {
+  if (!fileName || fileName.length <= maxLength) return fileName;
+  
+  const extension = fileName.split('.').pop();
+  const nameWithoutExt = fileName.slice(0, fileName.lastIndexOf('.'));
+  const maxNameLength = maxLength - extension.length - 4; // -4 for "..." and "."
+  
+  if (nameWithoutExt.length <= maxNameLength) return fileName;
+  
+  return `${nameWithoutExt.slice(0, maxNameLength)}...${extension}`;
+};
   
   const getResultTagColor = (status) => {
     switch(status) {
@@ -542,6 +554,18 @@ const PaymentVerifiedContent = ({ order, onMoveToProcessing, isUpdatingStatus, e
 const ProcessingContent = ({ order, candidates, expandedCandidate, setExpandedCandidate, orderId }) => {
   const [candidateDocs, setCandidateDocs] = useState({});
   const [loadingDocs, setLoadingDocs] = useState({});
+
+  const truncateFileName = (fileName, maxLength = 30) => {
+  if (!fileName || fileName.length <= maxLength) return fileName;
+  
+  const extension = fileName.split('.').pop();
+  const nameWithoutExt = fileName.slice(0, fileName.lastIndexOf('.'));
+  const maxNameLength = maxLength - extension.length - 4; // -4 for "..." and "."
+  
+  if (nameWithoutExt.length <= maxNameLength) return fileName;
+  
+  return `${nameWithoutExt.slice(0, maxNameLength)}...${extension}`;
+};
   
   // โหลดเอกสารเมื่อคลิกที่ expandedCandidate
   useEffect(() => {
@@ -702,14 +726,19 @@ const ProcessingContent = ({ order, candidates, expandedCandidate, setExpandedCa
                           </div>
                         </div>
                         
-                        <div className="p-3 flex-1">
-                          <div className="text-sm font-medium">{uploadedDoc ? uploadedDoc.fileName : 'ยังไม่มีเอกสาร'}</div>
+                        <div className="flex-1 min-w-0 p-3">
+                          <div 
+                            className="text-sm font-medium truncate" 
+                            title={uploadedDoc ? uploadedDoc.fileName : 'ยังไม่มีเอกสาร'}
+                          >
+                            {uploadedDoc ? truncateFileName(uploadedDoc.fileName) : 'ยังไม่มีเอกสาร'}
+                          </div>
                           <div className="text-xs text-gray-500 mt-1">
                             {uploadedDoc ? `ขนาดไฟล์: ${formatFileSize(uploadedDoc.fileSize || 1024 * 1024)}` : 'ยังไม่อัปโหลดเอกสาร'}
                           </div>
                         </div>
                         
-                        <div className="px-3 py-3">
+                        <div className="px-3 py-3 flex-shrink-0">
                           {uploadedDoc ? (
                             <a href={uploadedDoc.filePath} target="_blank" rel="noopener noreferrer" 
                               className="inline-block px-4 py-1.5 bg-amber-600 text-white text-xs rounded-full font-medium hover:bg-amber-700 transition-colors">
@@ -969,8 +998,9 @@ const ProcessingContent = ({ order, candidates, expandedCandidate, setExpandedCa
                 <h4 className="text-sm font-medium text-gray-700 mb-4">รายงานผลลัพธ์</h4>
                 
                 {candidate.result && candidate.result.resultFile ? (
-                  <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center">
-                    <div className="h-14 w-14 bg-yellow-50 rounded-lg flex items-center justify-center mr-4">
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-center">
+                    <div className="h-14 w-14 bg-yellow-50 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M7 18H17V16H7V18Z" fill="#F59E0B"/>
                         <path d="M17 14H7V12H17V14Z" fill="#F59E0B"/>
@@ -978,9 +1008,9 @@ const ProcessingContent = ({ order, candidates, expandedCandidate, setExpandedCa
                         <path fillRule="evenodd" clipRule="evenodd" d="M6 2C4.34315 2 3 3.34315 3 5V19C3 20.6569 4.34315 22 6 22H18C19.6569 22 21 20.6569 21 19V9C21 5.13401 17.866 2 14 2H6ZM5 5C5 4.44772 5.44772 4 6 4H13V8C13 9.10457 13.8954 10 15 10H19V19C19 19.5523 18.5523 20 18 20H6C5.44772 20 5 19.5523 5 19V5ZM15 8H19L15 4V8Z" fill="#F59E0B"/>
                       </svg>
                     </div>
-                    <div className="flex-grow">
-                      <p className="font-medium text-gray-800">
-                        {candidate.result.fileName || `${candidate.C_FullName}_Report.pdf`}
+                    <div className="flex-1 min-w-0 pr-4">
+                      <p className="font-medium text-gray-800 truncate" title={candidate.result.fileName || `${candidate.C_FullName}_Report.pdf`}>
+                        {truncateFileName(candidate.result.fileName || `${candidate.C_FullName}_Report.pdf`, 40)}
                       </p>
                       <p className="text-xs text-gray-500">
                         PDF • {candidate.result.fileSize ? `${Math.round(candidate.result.fileSize/1024)} KB` : '2.2 MB'}
@@ -990,12 +1020,13 @@ const ProcessingContent = ({ order, candidates, expandedCandidate, setExpandedCa
                       href={candidate.result.resultFile}
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-[#FFC107] text-white rounded-lg text-sm hover:bg-[#F5B800] transition flex items-center"
+                      className="px-4 py-2 bg-[#FFC107] text-white rounded-lg text-sm hover:bg-[#F5B800] transition flex items-center flex-shrink-0"
                     >
                       <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
                       ดาวน์โหลด
                     </a>
                   </div>
+                </div>
                 ) : (
                   <div className="bg-gray-50 rounded-lg p-6 text-center text-gray-500">
                     ไม่มีไฟล์รายงานผลลัพธ์
