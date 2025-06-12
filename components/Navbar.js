@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronDown, LayoutDashboard, UserCircle, Bell, LogOut, Settings, Users, CreditCard, Shield, Gift, Percent } from 'lucide-react';
+import { ChevronDown, LayoutDashboard, UserCircle, Bell, LogOut, Settings, Users, CreditCard, Shield, Gift, Percent, Star, MessageSquare } from 'lucide-react';
 import LogoutButton from './LogoutButton';
 import { useAuth } from '@/context/AuthContext';
 
@@ -115,6 +115,15 @@ const UserDropdown = () => {
                   <Users className="w-5 h-5 mr-3 text-purple-500" />
                   User Management
                 </Link>
+                {/* เพิ่ม Review Management สำหรับ Admin */}
+                <Link 
+                  href="/admin/reviews" 
+                  className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <MessageSquare className="w-5 h-5 mr-3 text-amber-500" />
+                  Review Management
+                </Link>
                 <Link 
                   href="/admin/coupon-management" 
                   className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
@@ -158,6 +167,15 @@ const UserDropdown = () => {
                 >
                   <UserCircle className="w-5 h-5 mr-3 text-green-500" />
                   My Profile
+                </Link>
+                {/* เพิ่มเมนู My Reviews ตรงนี้ */}
+                <Link 
+                  href="/my-reviews" 
+                  className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-100 transition-colors duration-200"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Star className="w-5 h-5 mr-3 text-[#FFC107]" />
+                  My Reviews
                 </Link>
                 <Link 
                   href="/coupon" 
@@ -337,9 +355,21 @@ export default function Navbar({ activePath }) {
                   )}
                 </Link>
                 <Link 
+                  href="/admin/reviews" 
+                  className={`text-gray-700 hover:text-red-600 relative 
+                    ${isActiveLink('/admin/reviews') 
+                      ? 'text-red-600 font-semibold' 
+                      : ''}`}
+                >
+                  Reviews
+                  {isActiveLink('/admin/reviews') && (
+                    <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-red-600"></span>
+                  )}
+                </Link>
+                <Link 
                   href="/admin/user-management" 
                   className={`text-gray-700 hover:text-red-600 relative 
-                    ${isActiveLink('/admin/payments') 
+                    ${isActiveLink('/admin/user-management') 
                       ? 'text-red-600 font-semibold' 
                       : ''}`}
                 >
@@ -373,6 +403,19 @@ export default function Navbar({ activePath }) {
                 >
                   Tracking Process
                   {isActiveLink('/tracking-process') && (
+                    <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-blue-600"></span>
+                  )}
+                </Link>
+                {/* เพิ่มลิงก์ Reviews สำหรับ User ธรรมดา */}
+                <Link 
+                  href="/reviews" 
+                  className={`text-gray-700 hover:text-blue-600 relative 
+                    ${isActiveLink('/reviews') 
+                      ? 'text-blue-600 font-semibold' 
+                      : ''}`}
+                >
+                  Reviews
+                  {isActiveLink('/reviews') && (
                     <span className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-blue-600"></span>
                   )}
                 </Link>

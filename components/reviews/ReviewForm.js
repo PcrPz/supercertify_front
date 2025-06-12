@@ -94,45 +94,64 @@ export default function ReviewForm({ orderId, reviewId, onSuccess }) {
   };
 
   // จัดการเมื่อกดปุ่ม Submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  console.log('Form submitted with data:', formData);
 
-    if (!validateForm()) {
-      return;
+  if (!validateForm()) {
+    console.log('Form validation failed');
+    return;
+  }
+
+  console.log('Form validated successfully, preparing to send API request');
+  setLoading(true);
+  
+  try {
+    let response;
+
+    if (isEdit) {
+      // อัปเดต Review
+      console.log('Updating review with id:', reviewId, 'and data:', formData);
+      response = await updateReview(reviewId, formData);
+    } else {
+      // สร้าง Review ใหม่
+      console.log('Creating new review for orderId:', orderId, 'with data:', formData);
+      response = await createReview({
+        orderId,
+        ...formData
+      });
     }
 
-    setLoading(true);
-    try {
-      let response;
+    console.log('API response:', response);
 
-      if (isEdit) {
-        // อัปเดต Review
-        response = await updateReview(reviewId, formData);
+    if (response.success) {
+      console.log('Review operation successful');
+      
+      // แสดงการแจ้งเตือนใน ReviewForm
+      toast.success(isEdit ? 'อัปเดตรีวิวสำเร็จ' : 'ส่งรีวิวสำเร็จ', {
+        position: "top-right",
+        autoClose: 3000
+      });
+      
+      // ตรวจสอบก่อนเรียกใช้ callback
+      console.log('Checking onSuccess callback:', onSuccess);
+      if (typeof onSuccess === 'function') {
+        console.log('Calling onSuccess callback with data:', response.data);
+        onSuccess(response.data);
       } else {
-        // สร้าง Review ใหม่
-        response = await createReview({
-          orderId,
-          ...formData
-        });
+        console.warn('onSuccess is not a function or not provided');
       }
-
-      if (response.success) {
-        toast.success(isEdit ? 'อัปเดตรีวิวสำเร็จ' : 'ส่งรีวิวสำเร็จ');
-        
-        // เรียกใช้ callback function (ถ้ามี)
-        if (typeof onSuccess === 'function') {
-          onSuccess(response.data);
-        }
-      } else {
-        toast.error(response.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
-      }
-    } catch (error) {
-      console.error('Error submitting review:', error);
-      toast.error('เกิดข้อผิดพลาดในการส่งรีวิว กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      setLoading(false);
+    } else {
+      console.error('Review operation failed:', response.message);
+      toast.error(response.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
     }
-  };
+  } catch (error) {
+    console.error('Error submitting review:', error);
+    toast.error('เกิดข้อผิดพลาดในการส่งรีวิว กรุณาลองใหม่อีกครั้ง');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // สร้าง component แสดงดาว
   const renderStars = () => {
@@ -142,7 +161,7 @@ export default function ReviewForm({ orderId, reviewId, onSuccess }) {
         stars.push(
           <FaStar
             key={i}
-            className="text-yellow-500 text-2xl cursor-pointer"
+            className="text-[#FFC107] text-3xl cursor-pointer"
             onClick={() => handleRatingClick(i)}
           />
         );
@@ -150,7 +169,7 @@ export default function ReviewForm({ orderId, reviewId, onSuccess }) {
         stars.push(
           <FaRegStar
             key={i}
-            className="text-yellow-500 text-2xl cursor-pointer"
+            className="text-gray-300 text-3xl cursor-pointer"
             onClick={() => handleRatingClick(i)}
           />
         );
@@ -159,31 +178,23 @@ export default function ReviewForm({ orderId, reviewId, onSuccess }) {
     return stars;
   };
 
-  if (loading && isEdit) {
-    return (
-      <div className="flex justify-center items-center py-10">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white rounded-lg">
       <form onSubmit={handleSubmit}>
         {/* คะแนนความพึงพอใจ */}
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">ให้คะแนนความพึงพอใจ</label>
-          <div className="flex space-x-2">
+        <div className="mb-6">
+          <label className="block text-gray-700 mb-3 font-medium">ให้คะแนนความพึงพอใจ</label>
+          <div className="flex space-x-3">
             {renderStars()}
           </div>
           {errors.rating && (
-            <p className="text-red-500 text-sm mt-1">{errors.rating}</p>
+            <p className="text-red-500 text-sm mt-2">{errors.rating}</p>
           )}
         </div>
         
         {/* ความคิดเห็น */}
-        <div className="mb-4">
-          <label htmlFor="comment" className="block text-gray-700 mb-2">
+        <div className="mb-6">
+          <label htmlFor="comment" className="block text-gray-700 mb-3 font-medium">
             ความคิดเห็นเพิ่มเติม
           </label>
           <textarea
@@ -192,13 +203,13 @@ export default function ReviewForm({ orderId, reviewId, onSuccess }) {
             rows="4"
             value={formData.comment}
             onChange={handleChange}
-            className={`w-full px-3 py-2 border ${
-              errors.comment ? 'border-red-500' : 'border-gray-300'
-            } rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500`}
+            className={`w-full px-4 py-3 border ${
+              errors.comment ? 'border-red-500' : 'border-gray-200'
+            } rounded-lg focus:outline-none focus:ring-1 focus:ring-[#444DDA] resize-none text-gray-700`}
             placeholder="แบ่งปันประสบการณ์ของคุณ..."
           ></textarea>
           {errors.comment && (
-            <p className="text-red-500 text-sm mt-1">{errors.comment}</p>
+            <p className="text-red-500 text-sm mt-2">{errors.comment}</p>
           )}
         </div>
         
@@ -207,7 +218,7 @@ export default function ReviewForm({ orderId, reviewId, onSuccess }) {
           <button
             type="submit"
             disabled={loading}
-            className={`px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none ${
+            className={`px-6 py-2.5 bg-[#444DDA] text-white rounded-full hover:bg-[#444DDA]/90 focus:outline-none transition-colors shadow-sm ${
               loading ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
