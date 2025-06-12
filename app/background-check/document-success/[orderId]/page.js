@@ -69,8 +69,8 @@ export default function DocumentSubmissionSuccessPage() {
       
       console.log('Survey coupon response:', response); // เพื่อ debug
       
-      if (response.success) {
-        setCouponData(response.coupon);
+    if (response.success) {
+      setCouponData(response.coupon);
         
         if (response.alreadyClaimed) {
           // ผู้ใช้เคยรับคูปองแล้ว

@@ -1,13 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react'; // เพิ่ม useCallback
 import Image from 'next/image';
 import { useCheck } from '@/context/CheckContext';
 import { getServices } from '@/services/apiService';
+import useToast from '@/hooks/useToast';
 
 export default function ServicesList() {
   const { checkMode, addService } = useCheck();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const toast = useToast();
+  
+  // ใช้ useCallback เพื่อป้องกันการสร้างฟังก์ชันใหม่ทุกครั้งที่ re-render
+  const handleAddService = useCallback((service) => {
+    addService(service);
+    toast.success(`เพิ่ม "${service.title}" ลงในตะกร้าแล้ว`, {
+      autoClose: 2000, // ลดเวลาแสดง Toast
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+    });
+  }, [addService, toast]);
 
   useEffect(() => {
     let isMounted = true;
@@ -16,25 +30,27 @@ export default function ServicesList() {
       try {
         setLoading(true);
         const data = await getServices();
-        console.log("Loaded services:", data);
-
-        // แปลงข้อมูลให้ตรงกับโครงสร้างที่ frontend ต้องการ
-        const formattedData = data.map(service => ({
-          id: service._id,
-          title: service.Service_Title,
-          description: service.Service_Desc,
-          price: service.Price,
-          image: service.Service_Image,
-          category: 'general' // ตั้งค่าเริ่มต้น
-        }));
-
+        
         if (isMounted) {
+          // แปลงข้อมูล...
+          const formattedData = data.map(service => ({
+            id: service._id,
+            title: service.Service_Title,
+            description: service.Service_Desc,
+            price: service.Price,
+            image: service.Service_Image,
+            category: 'general'
+          }));
+          
           setServices(formattedData);
         }
       } catch (err) {
         if (isMounted) {
           setError('ไม่สามารถโหลดข้อมูลบริการได้');
           console.error(err);
+          
+          // ย้ายการแสดง toast ที่ error ไปใน useEffect เพื่อไม่ให้เรียกซ้ำ
+          toast.error('ไม่สามารถโหลดข้อมูลบริการได้ กรุณาลองใหม่อีกครั้ง');
         }
       } finally {
         if (isMounted) {
@@ -48,7 +64,7 @@ export default function ServicesList() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, []); // เพิ่ม toast ใน dependencies
 
   // แก้ไขการกรองข้อมูล
   const filteredServices = services
@@ -64,7 +80,11 @@ export default function ServicesList() {
       {/* แสดงรายการบริการ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {filteredServices.map(service => (
-          <ServiceCard key={service.id} service={service} onAddService={addService} />
+          <ServiceCard 
+            key={service.id} 
+            service={service} 
+            onAddService={handleAddService} // เปลี่ยนเป็น handleAddService
+          />
         ))}
       </div>
 
@@ -77,6 +97,7 @@ export default function ServicesList() {
   );
 }
 
+// ไม่ต้องแก้ไข ServiceCard เพราะเราส่ง handleAddService ไปแล้ว
 function ServiceCard({ service, onAddService }) {
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">

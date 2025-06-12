@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCheck } from '@/context/CheckContext';
 import { createOrder, checkCoupon, getUserCoupons} from '@/services/apiService';
+import useToast from '@/hooks/useToast';
 
 export default function ApplicantForm() {
   const router = useRouter();
@@ -31,6 +32,8 @@ export default function ApplicantForm() {
     applyCoupon: applyCouponToContext,
     removeCoupon: removeCouponFromContext
   } = useCheck();
+
+  const toast = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [discountInfo, setDiscountInfo] = useState({
@@ -136,149 +139,166 @@ useEffect(() => {
   };
 
   // ฟังก์ชันตรวจสอบคูปอง
-const handleCheckCoupon = async () => {
-  if (!couponCode.trim()) {
-    setCouponError('กรุณากรอกรหัสคูปอง');
-    return;
-  }
-  
-  try {
-    setCheckingCoupon(true);
-    setCouponError('');
-    
-    // คำนวณราคาและแสดง debug info
-    const subtotal = getSubtotalPrice();
-    const promotionDiscount = getDiscountAmount();
-    const afterPromotionPrice = subtotal - promotionDiscount;
-    
-    console.log('🔍 Coupon Check Debug Info:', {
-      couponCode: couponCode.trim(),
-      subtotal,
-      promotionDiscount, 
-      afterPromotionPrice
-    });
-    
-    // ตรวจสอบค่าที่ส่งไป
-    if (subtotal <= 0) {
-      throw new Error('ไม่สามารถใช้คูปองได้เนื่องจากไม่มีสินค้าในตะกร้า');
+  const handleCheckCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('กรุณากรอกรหัสคูปอง');
+      // เพิ่ม toast error
+      toast.error('กรุณากรอกรหัสคูปอง');
+      return;
     }
     
-    if (afterPromotionPrice <= 0) {
-      throw new Error('ไม่สามารถใช้คูปองได้เนื่องจากยอดรวมหลังหักส่วนลดน้อยกว่าหรือเท่ากับ 0');
+    try {
+      setCheckingCoupon(true);
+      setCouponError('');
+      
+      // คำนวณราคาและแสดง debug info
+      const subtotal = getSubtotalPrice();
+      const promotionDiscount = getDiscountAmount();
+      const afterPromotionPrice = subtotal - promotionDiscount;
+      
+      console.log('🔍 Coupon Check Debug Info:', {
+        couponCode: couponCode.trim(),
+        subtotal,
+        promotionDiscount, 
+        afterPromotionPrice
+      });
+      
+      // ตรวจสอบค่าที่ส่งไป
+      if (subtotal <= 0) {
+        throw new Error('ไม่สามารถใช้คูปองได้เนื่องจากไม่มีสินค้าในตะกร้า');
+      }
+      
+      if (afterPromotionPrice <= 0) {
+        throw new Error('ไม่สามารถใช้คูปองได้เนื่องจากยอดรวมหลังหักส่วนลดน้อยกว่าหรือเท่ากับ 0');
+      }
+      
+      // เรียกใช้ API จาก apiService โดยตรง
+      const response = await checkCoupon(couponCode.trim(), subtotal, promotionDiscount);
+      
+      console.log('✅ Coupon Check Response:', response);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'คูปองไม่ถูกต้องหรือไม่สามารถใช้งานได้');
+      }
+      
+      // ตรวจสอบว่า response มีข้อมูลครบถ้วน
+      if (!response.coupon || typeof response.discountAmount !== 'number') {
+        throw new Error('ข้อมูลคูปองไม่ครบถ้วน');
+      }
+      
+      // ถ้าสำเร็จ บันทึกข้อมูลคูปอง
+      setCouponInfo(response);
+      setCouponError('');
+      
+      // เพิ่ม toast success
+      toast.success(`ตรวจสอบคูปอง ${response.coupon.code} สำเร็จ ส่วนลด ${response.discountAmount.toLocaleString()} บาท`);
+      
+      console.log('💾 Coupon Info Saved:', response);
+      
+    } catch (error) {
+      console.error('❌ Error checking coupon:', error);
+      
+      // จัดการข้อความ error ให้เฉพาะเจาะจง
+      let errorMessage = 'คูปองไม่ถูกต้องหรือไม่สามารถใช้งานได้';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // เพิ่มข้อความแนะนำสำหรับ error ที่พบบ่อย
+      if (errorMessage.includes('ถูกใช้ไปแล้ว')) {
+        errorMessage += ' - คูปองนี้อาจถูกใช้ในคำสั่งซื้ออื่นแล้ว';
+      } else if (errorMessage.includes('หมดอายุ')) {
+        errorMessage += ' - กรุณาตรวจสอบวันหมดอายุของคูปอง';
+      } else if (errorMessage.includes('ไม่พบ')) {
+        errorMessage += ' - กรุณาตรวจสอบรหัสคูปองให้ถูกต้อง';
+      }
+      
+      setCouponError(errorMessage);
+      setCouponInfo(null);
+      
+      // เพิ่ม toast error
+      toast.error(errorMessage);
+      
+    } finally {
+      setCheckingCoupon(false);
     }
-    
-    // เรียกใช้ API จาก apiService โดยตรง
-    const response = await checkCoupon(couponCode.trim(), subtotal, promotionDiscount);
-    
-    console.log('✅ Coupon Check Response:', response);
-    
-    if (!response.success) {
-      throw new Error(response.message || 'คูปองไม่ถูกต้องหรือไม่สามารถใช้งานได้');
-    }
-    
-    // ตรวจสอบว่า response มีข้อมูลครบถ้วน
-    if (!response.coupon || typeof response.discountAmount !== 'number') {
-      throw new Error('ข้อมูลคูปองไม่ครบถ้วน');
-    }
-    
-    // ถ้าสำเร็จ บันทึกข้อมูลคูปอง
-    setCouponInfo(response);
-    setCouponError('');
-    
-    console.log('💾 Coupon Info Saved:', response);
-    
-  } catch (error) {
-    console.error('❌ Error checking coupon:', error);
-    
-    // จัดการข้อความ error ให้เฉพาะเจาะจง
-    let errorMessage = 'คูปองไม่ถูกต้องหรือไม่สามารถใช้งานได้';
-    
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    // เพิ่มข้อความแนะนำสำหรับ error ที่พบบ่อย
-    if (errorMessage.includes('ถูกใช้ไปแล้ว')) {
-      errorMessage += ' - คูปองนี้อาจถูกใช้ในคำสั่งซื้ออื่นแล้ว';
-    } else if (errorMessage.includes('หมดอายุ')) {
-      errorMessage += ' - กรุณาตรวจสอบวันหมดอายุของคูปอง';
-    } else if (errorMessage.includes('ไม่พบ')) {
-      errorMessage += ' - กรุณาตรวจสอบรหัสคูปองให้ถูกต้อง';
-    }
-    
-    setCouponError(errorMessage);
-    setCouponInfo(null);
-  } finally {
-    setCheckingCoupon(false);
-  }
-};
+  };
 
  // แก้ไขฟังก์ชัน handleUseCouponFromList ด้วย
-const handleUseCouponFromList = async (coupon) => {
-  try {
-    setCheckingCoupon(true);
-    setCouponError('');
-    
-    // ตรวจสอบสถานะคูปองก่อน
-    if (!coupon || !coupon.code) {
-      throw new Error('ข้อมูลคูปองไม่ถูกต้อง');
+  const handleUseCouponFromList = async (coupon) => {
+    try {
+      setCheckingCoupon(true);
+      setCouponError('');
+      
+      // ตรวจสอบสถานะคูปองก่อน
+      if (!coupon || !coupon.code) {
+        throw new Error('ข้อมูลคูปองไม่ถูกต้อง');
+      }
+      
+      const subtotal = getSubtotalPrice();
+      const promotionDiscount = getDiscountAmount();
+      const afterPromotionPrice = subtotal - promotionDiscount;
+      
+      console.log('🔍 Using Coupon from List:', {
+        couponCode: coupon.code,
+        couponId: coupon._id,
+        subtotal,
+        promotionDiscount,
+        afterPromotionPrice
+      });
+      
+      // ตรวจสอบค่าพื้นฐาน
+      if (subtotal <= 0) {
+        throw new Error('ไม่สามารถใช้คูปองได้เนื่องจากไม่มีสินค้าในตะกร้า');
+      }
+      
+      if (afterPromotionPrice <= 0) {
+        throw new Error('ไม่สามารถใช้คูปองได้เนื่องจากยอดรวมหลังหักส่วนลดน้อยกว่าหรือเท่ากับ 0');
+      }
+      
+      const response = await checkCoupon(coupon.code, subtotal, promotionDiscount);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'คูปองไม่สามารถใช้งานได้');
+      }
+      
+      console.log('✅ Coupon from List Response:', response);
+      
+      // ใช้คูปองทันที
+      applyCouponToContext(response);
+      setAppliedCoupon(response);
+      setShowCouponList(false);
+      
+      console.log('💾 Applied Coupon from List:', response);
+      
+      // เพิ่ม toast success
+      toast.success(`ใช้คูปอง ${response.coupon.code} สำเร็จ ส่วนลด ${response.discountAmount.toLocaleString()} บาท`);
+      
+    } catch (error) {
+      console.error('❌ Error using coupon from list:', error);
+      
+      let errorMessage = 'คูปองไม่สามารถใช้งานได้';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setCouponError(errorMessage);
+      
+      // เพิ่ม toast error
+      toast.error(errorMessage);
+      
+    } finally {
+      setCheckingCoupon(false);
     }
-    
-    const subtotal = getSubtotalPrice();
-    const promotionDiscount = getDiscountAmount();
-    const afterPromotionPrice = subtotal - promotionDiscount;
-    
-    console.log('🔍 Using Coupon from List:', {
-      couponCode: coupon.code,
-      couponId: coupon._id,
-      subtotal,
-      promotionDiscount,
-      afterPromotionPrice
-    });
-    
-    // ตรวจสอบค่าพื้นฐาน
-    if (subtotal <= 0) {
-      throw new Error('ไม่สามารถใช้คูปองได้เนื่องจากไม่มีสินค้าในตะกร้า');
-    }
-    
-    if (afterPromotionPrice <= 0) {
-      throw new Error('ไม่สามารถใช้คูปองได้เนื่องจากยอดรวมหลังหักส่วนลดน้อยกว่าหรือเท่ากับ 0');
-    }
-    
-    const response = await checkCoupon(coupon.code, subtotal, promotionDiscount);
-    
-    if (!response.success) {
-      throw new Error(response.message || 'คูปองไม่สามารถใช้งานได้');
-    }
-    
-    console.log('✅ Coupon from List Response:', response);
-    
-    // ใช้คูปองทันที
-    applyCouponToContext(response);
-    setAppliedCoupon(response);
-    setShowCouponList(false);
-    
-    console.log('💾 Applied Coupon from List:', response);
-    
-  } catch (error) {
-    console.error('❌ Error using coupon from list:', error);
-    
-    let errorMessage = 'คูปองไม่สามารถใช้งานได้';
-    
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    setCouponError(errorMessage);
-  } finally {
-    setCheckingCoupon(false);
-  }
-};
+  };
   // ฟังก์ชันใช้คูปอง
+  // แก้ไขฟังก์ชันใช้คูปอง
   const applyCoupon = () => {
     if (!couponInfo) return;
     
@@ -287,13 +307,24 @@ const handleUseCouponFromList = async (coupon) => {
     setAppliedCoupon(couponInfo);
     setCouponCode('');
     setCouponInfo(null);
+    
+    // เพิ่ม toast success
+    toast.success(`ใช้คูปอง ${couponInfo.coupon.code} สำเร็จ ส่วนลด ${couponInfo.discountAmount.toLocaleString()} บาท`);
   };
+
 
   // ฟังก์ชันยกเลิกการใช้คูปอง
   const removeCoupon = () => {
+    // เก็บข้อมูลคูปองไว้ก่อนยกเลิก เพื่อใช้แสดงใน toast
+    const couponCode = appliedCoupon?.coupon?.code || 'คูปอง';
+    const discountAmount = appliedCoupon?.discountAmount || 0;
+    
     // ยกเลิกคูปองใน context
     removeCouponFromContext();
     setAppliedCoupon(null);
+    
+    // เพิ่ม toast warning
+    toast.warning(`ยกเลิกการใช้ ${couponCode} แล้ว ส่วนลด ${discountAmount.toLocaleString()} บาท ถูกนำออก`);
   };
   
   // ฟังก์ชันกลับไปหน้าเลือกบริการ
@@ -476,36 +507,71 @@ const handleUseCouponFromList = async (coupon) => {
     }
   };
   
-  return (
+ return (
     <div className="container max-w-2xl mx-auto p-8">
-      {/* ส่วนหัวและฟอร์มข้อมูลผู้สมัคร - คงเดิม */}
+      {/* ส่วนหัวและฟอร์มข้อมูลผู้สมัคร */}
       <h1 className="text-3xl font-bold text-center mb-6">แบบฟอร์มข้อมูลผู้สมัคร</h1>
       
-      <div className="max-w-xl mx-auto relative bg-white rounded-full p-1.5 flex mb-8 border-2 border-black shadow-lg">
-        <div 
-          className={`relative z-10 flex-1 py-3 rounded-full text-center transition-colors duration-300 ${
-            checkMode === 'company' 
-              ? 'bg-[#444DDA] text-white' 
-              : 'text-gray-400'
-          }`}
-        >
-          บริษัท
-        </div>
-        <div 
-          className={`relative z-10 flex-1 py-3 rounded-full text-center transition-colors duration-300 ${
-            checkMode === 'personal' 
-              ? 'bg-[#444DDA] text-white' 
-              : 'text-gray-400'
-          }`}
-        >
-          บุคคลธรรมดา
+      {/* แสดงแบนเนอร์โหมดที่สวยงาม */}
+      <div className="mb-8">
+        <div className="bg-gradient-to-r from-[#444DDA]/10 to-white border border-[#444DDA]/20 rounded-xl shadow-md overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center">
+              <div className={`w-12 h-12 rounded-full bg-[#444DDA] flex items-center justify-center mr-4 shadow-md`}>
+                {checkMode === 'company' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-[#444DDA]">
+                  โหมด{checkMode === 'company' ? 'บริษัท' : 'ส่วนตัว'}
+                </h3>
+                <p className="text-gray-600 mt-1">
+                  {checkMode === 'company' 
+                    ? 'สำหรับองค์กรที่ต้องการตรวจสอบพนักงานหลายคน' 
+                    : 'สำหรับการตรวจสอบประวัติส่วนบุคคล (จำกัด 1 คน)'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-4 ml-16">
+              {checkMode === 'company' ? (
+                <div className="flex items-center">
+                  <div className="bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-lg text-sm flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>คุณสามารถเพิ่มผู้สมัครได้หลายคน</span>
+                  </div>
+                  <button 
+                    onClick={addApplicant}
+                    className="ml-3 bg-[#444DDA] text-white text-sm px-3 py-1.5 rounded-lg font-medium hover:bg-[#3A43C3] transition-colors inline-flex items-center shadow-md hover:shadow-lg"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    เพิ่มผู้สมัคร
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-lg text-sm inline-flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>จำกัดผู้สมัคร 1 คนเท่านั้น</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-      
-      <p className="text-center text-gray-600 text-sm mb-8">
-        เราจะส่งแบบฟอร์มยินยอมนี้ถึงผู้สมัครของคุณเพื่อให้พวกเขาสามารถกรอกแบบฟอร์มยินยอมได้อย่างง่ายดาย
-        เราขอแนะนำให้คุณให้ข้อมูลสมัครครบถ้วนเพื่อความสะดวกรวดเร็วจาก SuperCertify
-      </p>
+
       
       <div className="border-2 border-black rounded-3xl shadow-xl">
         <form onSubmit={handleSubmit}>

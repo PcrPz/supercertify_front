@@ -232,7 +232,7 @@ export async function updateReview(reviewId, reviewData) {
     // ลบ property ที่เป็น undefined ออก
     Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
     
-    const result = await apiCall('patch', `/api/reviews/${reviewId}`, data);
+    const result = await apiCall('put', `/api/reviews/${reviewId}`, data);
     
     return {
       success: true,
@@ -384,15 +384,48 @@ export async function getReviewStats() {
  */
 export async function getAllReviews(options = {}) {
   try {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+    // แยกตัวแปรจาก options
+    const { 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      isPublic,
+      isDisplayed,  // เพิ่มการรับพารามิเตอร์ isDisplayed
+      minRating,
+      search
+    } = options;
     
-    const queryParams = new URLSearchParams({
-      page,
-      limit,
-      sortBy,
-      sortOrder
-    }).toString();
+    // สร้าง object สำหรับพารามิเตอร์
+    const params = {};
     
+    // ใส่พารามิเตอร์พื้นฐาน
+    params.page = page;
+    params.limit = limit;
+    params.sortBy = sortBy;
+    params.sortOrder = sortOrder;
+    
+    // เพิ่มพารามิเตอร์ตัวกรองเมื่อมีค่า
+    if (isPublic !== undefined) {
+      params.isPublic = isPublic;
+    }
+    
+    if (isDisplayed !== undefined) {
+      params.isDisplayed = isDisplayed;  // เพิ่มการส่งค่า isDisplayed
+    }
+    
+    if (minRating !== undefined) {
+      params.minRating = minRating;
+    }
+    
+    if (search) {
+      params.search = search;
+    }
+    
+    // สร้าง query string
+    const queryParams = new URLSearchParams(params).toString();
+    
+    // เรียก API
     const result = await apiCall('get', `/api/reviews?${queryParams}`);
     
     return {
@@ -462,6 +495,114 @@ export function ratingToStars(rating) {
   
   return '★'.repeat(fullStars) + '☆'.repeat(emptyStars);
 }
+/**
+ * ดึงข้อมูล Review สาธารณะทั้งหมด
+ * @returns {Promise<Object>} ข้อมูล Review สาธารณะ
+ */
+export async function getPublicReviews() {
+  try {
+    const result = await apiCall('get', '/api/reviews/public');
+    
+    return {
+      success: true,
+      data: result.data,
+      message: result.message || 'ดึงข้อมูล Review สาธารณะสำเร็จ'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล Review สาธารณะ',
+      error
+    };
+  }
+}
+
+/**
+ * ดึงข้อมูล Review ที่ถูกเลือกให้เป็น featured
+ * @returns {Promise<Object>} ข้อมูล Review ที่เป็น featured
+ */
+export async function getFeaturedReviews() {
+  try {
+    const result = await apiCall('get', '/api/reviews/featured');
+    
+    return {
+      success: true,
+      data: result.data,
+      message: result.message || 'ดึงข้อมูล Review ที่เป็น featured สำเร็จ'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล Review ที่เป็น featured',
+      error
+    };
+  }
+}
+
+/**
+ * ดึงข้อมูล Review ของผู้ใช้ตาม ID (สำหรับ Admin)
+ * @param {string} userId ID ของผู้ใช้
+ * @returns {Promise<Object>} ข้อมูล Review ของผู้ใช้
+ */
+export async function getReviewsByUserId(userId) {
+  try {
+    if (!userId) {
+      throw new Error('กรุณาระบุ User ID');
+    }
+    
+    const result = await apiCall('get', `/api/reviews/user/${userId}`);
+    
+    return {
+      success: true,
+      data: result.data,
+      message: result.message || 'ดึงข้อมูล Review ของผู้ใช้สำเร็จ'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล Review ของผู้ใช้',
+      error
+    };
+  }
+}
+
+/**
+ * อัปเดต Review โดย Admin
+ * @param {string} reviewId ID ของ Review ที่ต้องการอัปเดต
+ * @param {Object} adminReviewData ข้อมูล Review ที่จะอัปเดต
+ * @param {number} [adminReviewData.rating] คะแนนความพึงพอใจ (1-5)
+ * @param {string} [adminReviewData.comment] ความคิดเห็นเพิ่มเติม
+ * @param {boolean} [adminReviewData.isPublic] สถานะการแสดงบนเว็บไซต์
+ * @param {boolean} [adminReviewData.isFeatured] สถานะการเป็น featured
+ * @returns {Promise<Object>} ข้อมูล Review ที่อัปเดตแล้ว
+ */
+export async function adminUpdateReview(reviewId, adminReviewData) {
+  try {
+    if (!reviewId) {
+      throw new Error('กรุณาระบุ Review ID');
+    }
+    
+    // ตรวจสอบข้อมูลเบื้องต้น
+    if (adminReviewData.rating && (adminReviewData.rating < 1 || adminReviewData.rating > 5)) {
+      throw new Error('กรุณาให้คะแนนความพึงพอใจระหว่าง 1-5');
+    }
+    
+    const result = await apiCall('put', `/api/reviews/${reviewId}/admin`, adminReviewData);
+
+    
+    return {
+      success: true,
+      data: result.data,
+      message: result.message || 'อัปเดต Review โดย Admin สำเร็จ'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || 'เกิดข้อผิดพลาดในการอัปเดต Review โดย Admin',
+      error
+    };
+  }
+}
 
 // Export default object ที่รวมทุกฟังก์ชัน
 export default {
@@ -476,5 +617,9 @@ export default {
   getAllReviews,
   hasOrderBeenReviewed,
   calculateAverageRating,
-  ratingToStars
+  ratingToStars,
+  getPublicReviews,
+  getFeaturedReviews,
+  getReviewsByUserId,
+  adminUpdateReview
 };
