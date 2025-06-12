@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit, Calendar, Users, Percent, BarChart3, TrendingUp, Tag, Filter, User, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { getAllCoupons, getAdminCouponOverview, createPublicCoupon, deleteCoupon } from '@/services/apiService';
+import useToast from '@/hooks/useToast'; // นำเข้า useToast
 
 export default function AdminCouponManagement() {
   const [coupons, setCoupons] = useState([]);
@@ -31,6 +32,7 @@ export default function AdminCouponManagement() {
     couponType: 'PUBLIC'
   });
   const [filterType, setFilterType] = useState('available'); // เปลี่ยนจาก 'all' เป็น 'available'
+  const toast = useToast(); // เรียกใช้ useToast
 
   useEffect(() => {
     loadCoupons();
@@ -41,11 +43,15 @@ export default function AdminCouponManagement() {
     try {
       setLoading(true);
       const response = await getAllCoupons();
+      
       if (response.success) {
         setCoupons(response.coupons);
+      } else {
+        toast.error('ไม่สามารถโหลดข้อมูลคูปองได้'); // แสดง toast error เฉพาะเมื่อมีปัญหา
       }
     } catch (error) {
       console.error('Error loading coupons:', error);
+      toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลคูปอง'); // แสดง toast error เฉพาะเมื่อมีปัญหา
     } finally {
       setLoading(false);
     }
@@ -59,16 +65,37 @@ export default function AdminCouponManagement() {
       }
     } catch (error) {
       console.error('Error loading overview:', error);
+      // ไม่จำเป็นต้องแสดง toast เพราะเป็นข้อมูลเสริมเท่านั้น
     }
   };
 
   const handleCreateCoupon = async () => {
     try {
+      // ตรวจสอบข้อมูลที่จำเป็น
+      if (!newCoupon.code.trim()) {
+        toast.warning('กรุณาระบุรหัสคูปอง');
+        return;
+      }
+      
+      if (!newCoupon.discountPercent) {
+        toast.warning('กรุณาระบุเปอร์เซ็นต์ส่วนลด');
+        return;
+      }
+      
+      if (!newCoupon.expiryDate) {
+        toast.warning('กรุณาระบุวันหมดอายุ');
+        return;
+      }
+      
+      const loadingToastId = toast.loading('กำลังสร้างคูปอง...'); // แสดง toast loading
+      
       const response = await createPublicCoupon({
         ...newCoupon,
         discountPercent: parseInt(newCoupon.discountPercent),
         remainingClaims: newCoupon.remainingClaims ? parseInt(newCoupon.remainingClaims) : -1
       });
+
+      toast.dismiss(loadingToastId); // ปิด toast loading
 
       if (response.success) {
         setShowCreateModal(false);
@@ -82,30 +109,36 @@ export default function AdminCouponManagement() {
         });
         loadCoupons();
         loadOverview();
-        alert('สร้างคูปองสำเร็จ!');
+        toast.success(`สร้างคูปอง ${response.coupon.code} สำเร็จ!`); // แสดง toast success
       } else {
-        alert(response.message || 'เกิดข้อผิดพลาดในการสร้างคูปอง');
+        toast.error(response.message || 'เกิดข้อผิดพลาดในการสร้างคูปอง'); // แสดง toast error
       }
     } catch (error) {
       console.error('Error creating coupon:', error);
-      alert('เกิดข้อผิดพลาดในการสร้างคูปอง');
+      toast.error('เกิดข้อผิดพลาดในการสร้างคูปอง'); // แสดง toast error
     }
   };
 
   const handleDeleteCoupon = async (id, code) => {
-    if (confirm(`คุณแน่ใจหรือไม่ที่จะลบคูปอng "${code}"?`)) {
+    // ใช้ toast.info แทน confirm ด้วย options ที่กำหนดเอง
+    if (confirm(`คุณแน่ใจหรือไม่ที่จะลบคูปอง "${code}"?`)) {
       try {
+        const loadingToastId = toast.loading(`กำลังลบคูปอง ${code}...`); // แสดง toast loading
+        
         const response = await deleteCoupon(id);
+        
+        toast.dismiss(loadingToastId); // ปิด toast loading
+        
         if (response.success) {
           loadCoupons();
           loadOverview();
-          alert('ลบคูปองสำเร็จ!');
+          toast.success(`ลบคูปอง ${code} สำเร็จ!`); // แสดง toast success
         } else {
-          alert(response.message || 'เกิดข้อผิดพลาดในการลบคูปอง');
+          toast.error(response.message || 'เกิดข้อผิดพลาดในการลบคูปอง'); // แสดง toast error
         }
       } catch (error) {
         console.error('Error deleting coupon:', error);
-        alert('เกิดข้อผิดพลาดในการลบคูปอง');
+        toast.error('เกิดข้อผิดพลาดในการลบคูปอง'); // แสดง toast error
       }
     }
   };
@@ -115,6 +148,7 @@ export default function AdminCouponManagement() {
     const numbers = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
     setNewCoupon({...newCoupon, code: `${prefix}${numbers}`});
+    toast.info(`สร้างรหัสคูปองอัตโนมัติ: ${prefix}${numbers}`); // แสดง toast info
   };
 
   // ✅ ปรับปรุงฟังก์ชันกรองให้แยกชัดเจนขึ้น
@@ -135,6 +169,10 @@ export default function AdminCouponManagement() {
       case 'expired':
         // คูปองที่หมดอายุ
         return coupons.filter(c => new Date(c.expiryDate) < new Date());
+      
+      case 'survey':
+        // คูปองประเภทแบบสอบถาม
+        return coupons.filter(c => c.couponType === 'SURVEY');
       
       case 'all':
       default:
@@ -284,13 +322,17 @@ export default function AdminCouponManagement() {
             <Filter className="h-5 w-5 text-gray-500" />
             <select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                toast.info(`กรองคูปองตาม: ${e.target.options[e.target.selectedIndex].text}`);
+              }}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#444DDA] focus:border-transparent"
             >
               <option value="available">คูปองสาธารณะ</option>
               <option value="claimed">คูปองที่มีเจ้าของ</option>
               <option value="used">คูปองที่ใช้แล้ว</option>
               <option value="expired">คูปองหมดอายุ</option>
+              <option value="survey">คูปองแบบสอบถาม</option>
               <option value="all">ทั้งหมด</option>
             </select>
           </div>

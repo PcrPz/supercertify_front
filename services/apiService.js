@@ -673,8 +673,15 @@ export async function verifyDocument(documentId) {
  */
 export async function trackOrderByTrackingNumber(trackingNumber) {
   try {
+    // ตรวจสอบรูปแบบเบื้องต้น
+    if (!trackingNumber.startsWith('SCT')) {
+      return {
+        success: false,
+        message: 'รหัสอ้างอิงไม่ถูกต้อง รหัสควรขึ้นต้นด้วย SCT ตามด้วยตัวเลข'
+      };
+    }
+
     // ใช้ endpoint ที่ไม่ต้องการการยืนยันตัวตน
-    // ไม่ต้องใช้ token เนื่องจากเป็น public API
     const axios = require('axios');
     const instance = axios.create({
       baseURL: process.env.API_URL || 'http://localhost:3500', // ใช้ค่าเริ่มต้นหากไม่มี env
@@ -699,14 +706,27 @@ export async function trackOrderByTrackingNumber(trackingNumber) {
   } catch (error) {
     console.error(`❌ Error tracking order with number ${trackingNumber}:`, error);
     
+    let errorMessage = 'ไม่พบข้อมูลการตรวจสอบประวัติตามรหัสที่ระบุ';
+    
+    if (error.response) {
+      if (error.response.status === 404) {
+        errorMessage = 'ไม่พบข้อมูลที่ตรงกับรหัสอ้างอิงที่ระบุ โปรดตรวจสอบความถูกต้องและลองอีกครั้ง';
+      } else if (error.response.status === 400) {
+        errorMessage = 'รูปแบบรหัสอ้างอิงไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง';
+      } else if (error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      }
+    } else if (error.request) {
+      errorMessage = 'ไม่สามารถเชื่อมต่อกับระบบได้ในขณะนี้ กรุณาลองใหม่ภายหลัง';
+    }
+    
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'ไม่พบข้อมูลการตรวจสอบประวัติตามรหัสที่ระบุ',
+      message: errorMessage,
       error
     };
   }
 }
-
 /**
  * อัปโหลดไฟล์ผลการตรวจสอบให้กับ Candidate
  * @param {string} candidateId รหัสผู้สมัคร

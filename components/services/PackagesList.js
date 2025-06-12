@@ -1,21 +1,35 @@
-import { useState, useEffect } from 'react';
+// แก้ไขไฟล์ components/services/PackagesList.js
+import { useState, useEffect, useCallback } from 'react'; // เพิ่ม useCallback
 import { useCheck } from '@/context/CheckContext';
 import { getPackages } from '@/services/apiService';
+import useToast from '@/hooks/useToast';
 
 export default function PackagesList() {
   const { checkMode, addService } = useCheck();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const toast = useToast();
+  
+  // ใช้ useCallback
+  const handleAddPackage = useCallback((pkg) => {
+    addService(pkg);
+    toast.success(`เพิ่มแพ็กเกจ "${pkg.title}" ลงในตะกร้าแล้ว`, {
+      autoClose: 2000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+    });
+  }, [addService, toast]);
   
   useEffect(() => {
     async function loadPackages() {
       try {
         setLoading(true);
         const data = await getPackages();
-        console.log("Loaded packages:", data);
         
-        // แปลงข้อมูลให้ตรงกับโครงสร้างที่ frontend ต้องการ
+        // แปลงข้อมูล...
         const formattedData = data.map(pkg => ({
           id: pkg._id,
           title: pkg.Package_Title,
@@ -32,13 +46,16 @@ export default function PackagesList() {
       } catch (err) {
         setError('ไม่สามารถโหลดข้อมูลแพ็คเกจได้');
         console.error(err);
+        
+        // ย้ายการแสดง toast ที่ error
+        toast.error('ไม่สามารถโหลดข้อมูลแพ็คเกจได้ กรุณาลองใหม่อีกครั้ง');
       } finally {
         setLoading(false);
       }
     }
     
     loadPackages();
-  }, []);
+  }, []); // เพิ่ม toast ใน dependencies
   
   // แก้ไขการกรองข้อมูล
   const filteredPackages = packages.filter(pkg => pkg && (typeof pkg === 'object'));
@@ -69,7 +86,11 @@ export default function PackagesList() {
         
         {/* แพ็คเกจอื่นๆ จากระบบ */}
         {filteredPackages.map(pkg => (
-          <PackageCard key={pkg.id} package={pkg} onAddPackage={addService} />
+          <PackageCard 
+            key={pkg.id} 
+            package={pkg} 
+            onAddPackage={handleAddPackage} // เปลี่ยนเป็น handleAddPackage
+          />
         ))}
       </div>
       
@@ -82,7 +103,7 @@ export default function PackagesList() {
   );
 }
 
-// Component แสดงการ์ด Year Package
+// ไม่ต้องแก้ไข YearPackageCard
 function YearPackageCard({ package: pkg }) {
   return (
     <div className="bg-white rounded-lg border-2 border-[#444DDA] overflow-hidden shadow-lg relative h-full flex flex-col">
@@ -132,7 +153,7 @@ function YearPackageCard({ package: pkg }) {
   );
 }
 
-// Component แสดงการ์ดแพ็คเกจทั่วไป
+// แก้ไข PackageCard เพื่อใช้ onAddPackage
 function PackageCard({ package: pkg, onAddPackage }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-lg h-full flex flex-col">

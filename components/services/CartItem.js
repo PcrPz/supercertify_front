@@ -1,7 +1,37 @@
 import { useCheck } from '@/context/CheckContext';
+import useToast from '@/hooks/useToast';
+import { useCallback } from 'react'; // เพิ่มบรรทัดนี้
 
 export default function CartItem({ item }) {
   const { updateQuantity, removeService } = useCheck();
+  const toast = useToast();
+  
+  // ใช้ useCallback
+  const handleUpdateQuantity = useCallback((id, newQuantity) => {
+    const oldQuantity = item.quantity;
+    updateQuantity(id, newQuantity);
+    
+    // แสดง toast เฉพาะเมื่อมีการเปลี่ยนแปลงจำนวนจริงๆ
+    if (newQuantity !== oldQuantity) {
+      if (newQuantity > oldQuantity) {
+        toast.info(`เพิ่มจำนวน "${item.title}" เป็น ${newQuantity} คน`, {
+          autoClose: 2000,
+        });
+      } else if (newQuantity < oldQuantity) {
+        toast.info(`ลดจำนวน "${item.title}" เหลือ ${newQuantity} คน`, {
+          autoClose: 2000,
+        });
+      }
+    }
+  }, [item.title, item.quantity, updateQuantity, toast]);
+  
+  // ใช้ useCallback
+  const handleRemoveService = useCallback((id) => {
+    removeService(id);
+    toast.warning(`ลบ "${item.title}" ออกจากตะกร้าแล้ว`, {
+      autoClose: 2000,
+    });
+  }, [item.title, removeService, toast]);
   
   return (
     <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -13,21 +43,21 @@ export default function CartItem({ item }) {
       <div className="flex items-center">
         <span className="mr-2 text-gray-700">จำนวนคน:</span>
         <button 
-          onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+          onClick={() => handleUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
           className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
         >
           -
         </button>
         <span className="mx-3 text-gray-800">{item.quantity}</span>
         <button 
-          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
           className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
         >
           +
         </button>
         
         <button 
-          onClick={() => removeService(item.id)}
+          onClick={() => handleRemoveService(item.id)}
           className="ml-6 text-red-600 hover:text-red-800 transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
