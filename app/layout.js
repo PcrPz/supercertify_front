@@ -1,9 +1,10 @@
 // app/layout.js
 import { Fustat } from 'next/font/google';
 import Footer from '@/components/Footer';
-import './globals.css';
 import ServerNavbar from '@/components/ServerNavbar';
 import { AuthProvider } from '@/context/AuthContext';
+import ToastProvider from '@/components/common/ToastProvider';
+import './globals.css';
 
 const fustat = Fustat({
   weight: ['400', '500', '700'],
@@ -27,6 +28,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
           <Footer />
+          <ToastProvider />
         </AuthProvider>
       </body>
     </html>
