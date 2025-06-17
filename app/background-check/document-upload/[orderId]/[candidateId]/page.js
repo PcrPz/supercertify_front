@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getOrderById, uploadDocument, getServices, getUploadedDocuments } from '@/services/apiService';
+import useToast from '@/hooks/useToast'; // เพิ่ม import
 import Image from 'next/image';
 
 export default function DocumentUploadPage() {
   const params = useParams();
   const router = useRouter();
   const { orderId, candidateId } = params;
+  const toast = useToast(); // เพิ่ม hook
   
   const [candidate, setCandidate] = useState(null);
   const [services, setServices] = useState([]);
@@ -184,11 +186,14 @@ const handleSubmitService = async (serviceId) => {
     
     if (missingUploads.length > 0) {
       const missingNames = missingUploads.map(doc => doc.name).join(', ');
-      alert(`กรุณาอัปโหลดเอกสารที่จำเป็นให้ครบถ้วน: ${missingNames}`);
+      toast.warning(`กรุณาอัปโหลดเอกสารที่จำเป็นให้ครบถ้วน: ${missingNames}`);
       return;
     }
     
     setIsSubmitting(true);
+    
+    // แสดง loading toast
+    const loadingToast = toast.loading('กำลังอัปโหลดเอกสาร...');
     
   try {
     const uploadPromises = [];
@@ -241,7 +246,9 @@ const handleSubmitService = async (serviceId) => {
       
       // ถ้าไม่มีไฟล์ที่ต้องอัปโหลด
       if (uploadPromises.length === 0) {
-        alert(`ไม่มีเอกสารใหม่ที่ต้องอัปโหลด`);
+        // ปิด loading toast และแสดง info
+        toast.dismiss(loadingToast);
+        toast.info('ไม่มีเอกสารใหม่ที่ต้องอัปโหลด');
         setIsSubmitting(false);
         return;
       }
@@ -253,17 +260,24 @@ const handleSubmitService = async (serviceId) => {
       // เพิ่มการตรวจสอบว่า r ไม่เป็น null ก่อนเข้าถึง r.success
       const failed = results.filter(r => r && !r.success);
       
+      // ปิด loading toast
+      toast.dismiss(loadingToast);
+      
       if (failed.length > 0) {
-        alert(`มีเอกสารบางรายการอัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง`);
+        toast.error('มีเอกสารบางรายการอัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
       } else {
-        alert(`อัปโหลดเอกสารสำหรับบริการ ${service.name} สำเร็จ`);
+        toast.success(`อัปโหลดเอกสารสำหรับบริการ ${service.name} สำเร็จ`);
         
         // รีเฟรชหน้าเพื่อดึงข้อมูลใหม่
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000); // รอให้ toast แสดงก่อน reload
       }
     } catch (err) {
       console.error('Error uploading documents:', err);
-      alert('เกิดข้อผิดพลาดในการอัปโหลดเอกสาร');
+      // ปิด loading toast และแสดง error
+      toast.dismiss(loadingToast);
+      toast.error('เกิดข้อผิดพลาดในการอัปโหลดเอกสาร');
     } finally {
       setIsSubmitting(false);
     }

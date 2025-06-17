@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Gift, Calendar, Percent, Plus, Check, Clock, Star, Sparkles, Filter, X, ChevronRight, Zap, Trophy, TrendingUp, ShoppingBag, Crown } from 'lucide-react';
 import { getUserCoupons, getPublicCoupons, claimCoupon } from '@/services/apiService';
+import useToast from '@/hooks/useToast'; // เพิ่ม import useToast
 
 export default function MyCouponsPage() {
   const [myCoupons, setMyCoupons] = useState([]);
@@ -11,6 +12,9 @@ export default function MyCouponsPage() {
   const [activeTab, setActiveTab] = useState('my-coupons');
   const [couponFilter, setCouponFilter] = useState('all');
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+
+  // เพิ่ม useToast hook
+  const { success, error, loading: toastLoading, update } = useToast();
 
   useEffect(() => {
     loadCoupons();
@@ -38,25 +42,71 @@ export default function MyCouponsPage() {
   };
 
   const handleClaimCoupon = async (couponId) => {
+    let loadingToastId;
+    
     try {
       setClaimingCoupon(couponId);
+      
+      // แสดง loading toast
+      loadingToastId = toastLoading('กำลังเก็บคูปอง...');
       
       const result = await claimCoupon(couponId);
 
       if (result.success) {
+        // อัพเดต loading toast เป็น success
+        update(loadingToastId, {
+          render: `เก็บคูปอง "${result.coupon.code}" สำเร็จ! 🎉`,
+          type: 'success',
+          isLoading: false,
+          autoClose: 3000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
+        
+        // แสดง success animation
         setShowSuccessAnimation(true);
         await loadCoupons();
         
         setTimeout(() => {
           setShowSuccessAnimation(false);
-          alert(`เก็บคูปอง "${result.coupon.code}" สำเร็จ!`);
         }, 1500);
       } else {
-        alert(result.message || 'ไม่สามารถเก็บคูปองได้');
+        // อัพเดต loading toast เป็น error
+        update(loadingToastId, {
+          render: result.message || 'ไม่สามารถเก็บคูปองได้',
+          type: 'error',
+          isLoading: false,
+          autoClose: 4000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
       }
     } catch (error) {
       console.error('Error claiming coupon:', error);
-      alert('เกิดข้อผิดพลาดในการเก็บคูปอง');
+      
+      // อัพเดต loading toast เป็น error
+      if (loadingToastId) {
+        update(loadingToastId, {
+          render: 'เกิดข้อผิดพลาดในการเก็บคูปอง',
+          type: 'error',
+          isLoading: false,
+          autoClose: 4000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
+      } else {
+        // ถ้าไม่มี loading toast ให้สร้าง error toast ใหม่
+        error('เกิดข้อผิดพลาดในการเก็บคูปอง');
+      }
     } finally {
       setClaimingCoupon(null);
     }
