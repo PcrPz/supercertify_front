@@ -63,9 +63,10 @@ export async function middleware(request) {
 
   // ตรวจสอบเส้นทางที่ต้องการการเข้าสู่ระบบ
   if (isProtectedRoute) {
-    // ถ้าไม่มี token ให้ redirect ไปหน้า login
     if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      const url = new URL('/login', request.url);
+      url.searchParams.set('callbackUrl', request.url);
+      return NextResponse.redirect(url);
     }
   }
 

@@ -2,12 +2,10 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
 export async function POST(request) {
-
   try {
-    
     const body = await request.json();
-    console.log(body)
-    const { trackingNumber, customerEmail, customerName, totalPrice ,orderId} = body;
+    console.log(body);
+    const { trackingNumber, customerEmail, customerName, totalPrice, orderId } = body;
 
     // ตรวจสอบข้อมูลที่จำเป็น
     if (!trackingNumber || !customerEmail) {
@@ -27,6 +25,10 @@ export async function POST(request) {
         pass: process.env.EMAIL_PASSWORD,
       },
     });
+
+    // สร้าง URL ที่มีการเช็ค authentication
+    const redirectUrl = encodeURIComponent(`/background-check/payment-success?orderId=${orderId}`);
+    const actionUrl = `${process.env.SITE_URL}/login?callbackUrl=${redirectUrl}`;
 
     // สร้าง HTML เนื้อหาอีเมล
     const emailContent = `
@@ -67,7 +69,13 @@ export async function POST(request) {
         </div>
         
         <div style="text-align: center; margin-top: 30px;">
-          <a href="${process.env.SITE_URL}/background-check/payment-success?orderId=${orderId}" style="display: inline-block; background-color: #444DDA; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">ติดตามสถานะคำสั่งซื้อ</a>
+          <a href="${actionUrl}" style="display: inline-block; background-color: #444DDA; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">ติดตามสถานะคำสั่งซื้อ</a>
+        </div>
+        
+        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #2196F3;">
+          <p style="margin: 0; color: #1565C0; font-size: 14px;">
+            <strong>หมายเหตุ:</strong> เพื่อความปลอดภัยของข้อมูล กรุณาเข้าสู่ระบบก่อนเข้าดูสถานะคำสั่งซื้อ
+          </p>
         </div>
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777;">
@@ -91,9 +99,14 @@ export async function POST(request) {
     };
 
     // ส่งอีเมล
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent to customer:', info.messageId);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      success: true,
+      recipient: customerEmail,
+      messageId: info.messageId
+    });
   } catch (error) {
     console.error('Error sending email:', error);
     return NextResponse.json(

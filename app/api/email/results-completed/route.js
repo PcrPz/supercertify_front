@@ -58,7 +58,11 @@ export async function POST(request) {
       throw new Error(`Email configuration error: ${verifyError.message}`);
     }
 
-    // สร้าง HTML เนื้อหาอีเมล (โค้ดเดิม)
+    // สร้าง URL สำหรับการ redirect หลังจาก login
+    const redirectUrl = encodeURIComponent(`/orders/${orderId}`);
+    const actionUrl = `${process.env.SITE_URL}/login?callbackUrl=${redirectUrl}`;
+
+    // สร้าง HTML เนื้อหาอีเมล
     const emailContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
         <div style="text-align: center; margin-bottom: 20px;">
@@ -106,7 +110,13 @@ export async function POST(request) {
         </div>
         
         <div style="text-align: center; margin-top: 30px;">
-          <a href="${process.env.SITE_URL}/orders/${orderId}" style="display: inline-block; background-color: #444DDA; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">ดูผลการตรวจสอบ</a>
+          <a href="${actionUrl}" style="display: inline-block; background-color: #444DDA; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">ดูผลการตรวจสอบ</a>
+        </div>
+        
+        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #2196F3;">
+          <p style="margin: 0; color: #1565C0; font-size: 14px;">
+            <strong>หมายเหตุ:</strong> เพื่อความปลอดภัยของข้อมูล กรุณาเข้าสู่ระบบก่อนเข้าดูผลการตรวจสอบ
+          </p>
         </div>
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777;">
@@ -136,9 +146,10 @@ export async function POST(request) {
     });
 
     // ส่งอีเมล
+    let info;
     try {
       console.log(`DEBUG: [API Route] Sending email...`);
-      const info = await transporter.sendMail(mailOptions);
+      info = await transporter.sendMail(mailOptions);
       console.log(`DEBUG: [API Route] Email sent successfully:`, {
         messageId: info.messageId,
         response: info.response
@@ -149,7 +160,11 @@ export async function POST(request) {
     }
 
     console.log(`DEBUG: [API Route] Sending success response`);
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      success: true,
+      recipient: customerEmail,
+      messageId: info.messageId 
+    });
   } catch (error) {
     console.error(`DEBUG: [API Route] Error in results-completed API route:`, error);
     return NextResponse.json(
