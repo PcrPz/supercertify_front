@@ -406,6 +406,20 @@ export async function updateUserByAdmin(userId, profileData) {
   return response;
 }
 
+/**
+ * ดึงอีเมลของผู้ใช้ทั้งหมดที่มีบทบาทเป็นแอดมิน
+ * @returns {Promise<Array<string>>} รายการอีเมลของแอดมินทั้งหมด
+ */
+export async function getAdminEmails() {
+  const response = await apiCall('get', '/users/admin-emails-internal');
+  
+  if (response && response.success === true && response.data) {
+    return response.data;
+  }
+  
+  return [];
+}
+
 export default {
   getMyProfile,
   updateProfile,
@@ -416,5 +430,6 @@ export default {
   getUsersByRole,
   updateUserRole,
   deleteUser,
-  updateUserByAdmin    // เพิ่มฟังก์ชันใหม่
+  updateUserByAdmin,
+  getAdminEmails    // เพิ่มฟังก์ชันใหม่
 };

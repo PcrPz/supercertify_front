@@ -27,11 +27,11 @@ export default function DashboardPage() {
   
   // ข้อมูลขั้นตอนในกระบวนการ
   const steps = [
-    { id: 1, name: 'คำขอความยินยอม', status: 'awaiting_payment' },
-    { id: 2, name: 'การชำระเงิน', status: 'pending_verification' },
-    { id: 3, name: 'ยืนยันการชำระเงิน', status: 'payment_verified' },
+    { id: 1, name: 'รอชำระเงิน', status: 'awaiting_payment' },
+    { id: 2, name: 'รอตรวจสอบการชำระเงิน', status: 'pending_verification' },
+    { id: 3, name: 'ยืนยันการชำระเงินแล้ว', status: 'payment_verified' },
     { id: 4, name: 'รอดำเนินการ', status: 'processing' },
-    { id: 5, name: 'สำเร็จ', status: 'completed' }
+    { id: 5, name: 'เสร็จสิ้น', status: 'completed' }
   ];
   
   // รายการสถานะทั้งหมดสำหรับตัวกรอง

@@ -2,11 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getOrderById, updateOrderToProcessing } from '@/services/apiService';
+import useToast from '@/hooks/useToast'; // เพิ่ม import
 
 export default function DocumentSubmissionPage() {
   const params = useParams();
   const router = useRouter();
   const orderId = params.orderId;
+  const toast = useToast(); // เพิ่ม hook
   
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,13 +52,16 @@ export default function DocumentSubmissionPage() {
     
     // ถ้ายังมีผู้สมัครที่ยังอัปโหลดเอกสารไม่ครบถ้วน
     if (incompleteCount > 0) {
-      alert(`กรุณาอัปโหลดเอกสารให้ครบถ้วนสำหรับผู้สมัครทั้ง ${incompleteCount} คนก่อนดำเนินการต่อ`);
+      toast.warning(`กรุณาอัปโหลดเอกสารให้ครบถ้วนสำหรับผู้สมัครทั้ง ${incompleteCount} คนก่อนดำเนินการต่อ`);
       return;
     }
     
     // ถ้าครบถ้วนแล้ว ให้อัพเดทสถานะเป็น "processing" (ถ้าสถานะปัจจุบันเป็น payment_verified)
     try {
       setSubmitting(true);
+      
+      // แสดง loading toast
+      const loadingToast = toast.loading('กำลังอัปเดตสถานะ...');
       
       // ตรวจสอบสถานะปัจจุบันของ Order
       const currentStatus = order.OrderStatus;
@@ -65,22 +70,33 @@ export default function DocumentSubmissionPage() {
       if (currentStatus === 'payment_verified') {
         const result = await updateOrderToProcessing(orderId);
         
+        // ปิด loading toast
+        toast.dismiss(loadingToast);
+        
         if (result.success) {
-          alert('อัปโหลดเอกสารและอัปเดตสถานะสำเร็จ!');
-          // นำทางไปยังหน้าสำเร็จ
-          router.push(`/background-check/document-success/${orderId}`);
+
+          toast.success('อัปโหลดเอกสารและอัปเดตสถานะสำเร็จ!');
+          // รอให้ toast แสดงก่อนนำทาง
+          setTimeout(() => {
+            router.push(`/background-check/document-success/${orderId}`);
+          }, 1500);
         } else {
-          alert(`เกิดข้อผิดพลาดในการอัปเดตสถานะ: ${result.message}`);
+          toast.error(`เกิดข้อผิดพลาดในการอัปเดตสถานะ: ${result.message}`);
         }
       } else {
+        // ปิด loading toast
+        toast.dismiss(loadingToast);
+        
         // ถ้าสถานะไม่ใช่ payment_verified ให้แจ้งเตือนผู้ใช้
-        alert('อัปโหลดเอกสารเสร็จสมบูรณ์แล้ว');
-        // นำทางไปยังหน้า dashboard
-        router.push('/background-check/dashboard');
+        toast.success('อัปโหลดเอกสารเสร็จสมบูรณ์แล้ว');
+        // รอให้ toast แสดงก่อนนำทาง
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1500);
       }
     } catch (error) {
       console.error('Error submitting documents:', error);
-      alert('เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง');
+      toast.error('เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง');
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +124,7 @@ export default function DocumentSubmissionPage() {
             <p className="text-lg font-medium">{error}</p>
           </div>
           <button 
-            onClick={() => router.push('/background-check/dashboard')}
+            onClick={() => router.push('/dashboard')}
             className="bg-[#444DDA] text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
           >
             กลับไปยังหน้าหลัก
@@ -124,7 +140,7 @@ export default function DocumentSubmissionPage() {
         <div className="text-center">
           <p className="text-lg text-gray-600">ไม่พบข้อมูลผู้สมัคร</p>
           <button 
-            onClick={() => router.push('/background-check/dashboard')}
+            onClick={() => router.push('/dashboard')}
             className="bg-[#444DDA] text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors mt-4"
           >
             กลับไปยังหน้าหลัก

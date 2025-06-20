@@ -15,7 +15,9 @@ function LoginContent() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl');
+  const callbackUrl = searchParams.get('redirect') || searchParams.get('callbackUrl');
+  console.log('Callback URL:', callbackUrl);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();

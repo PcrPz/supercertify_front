@@ -13,6 +13,7 @@ import {
   getPackageById   // เพิ่มเข้ามา
 } from '@/services/servicePackageApi';
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaEllipsisV, FaEye } from 'react-icons/fa';
+import useToast from '@/hooks/useToast';
 
 function generateUUID() { 
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { 
@@ -30,7 +31,7 @@ const ServicePackagePage = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showActions, setShowActions] = useState({});
-  
+  const { success: successToast, error: errorToast, warning, info, loading: toastLoading, update } = useToast();
   // State สำหรับ Modal สร้างบริการใหม่
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newService, setNewService] = useState({
@@ -82,7 +83,7 @@ const ServicePackagePage = () => {
       } catch (err) {
         console.error(`Error fetching ${activeTab}:`, err);
         setError(`ไม่สามารถโหลดข้อมูล${activeTab === 'services' ? 'บริการ' : 'แพ็คเกจ'}ได้`);
-        alert(`ไม่สามารถโหลดข้อมูล${activeTab === 'services' ? 'บริการ' : 'แพ็คเกจ'}ได้`)
+        errorToast(`ไม่สามารถโหลดข้อมูล${activeTab === 'services' ? 'บริการ' : 'แพ็คเกจ'}ได้`);
       } finally {
         setLoading(false);
       }
@@ -133,7 +134,7 @@ const ServicePackagePage = () => {
       }
     } catch (err) {
       console.error(`Error fetching details:`, err);
-      alert(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${err.message}`);
+      errorToast(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -155,7 +156,7 @@ const ServicePackagePage = () => {
     setIsPackageModalOpen(true);
   } catch (err) {
     console.error('Error fetching services:', err);
-    alert(`ไม่สามารถดึงข้อมูลบริการได้: ${err.message}`);
+    errorToast(`ไม่สามารถดึงข้อมูลบริการได้: ${err.message}`);
   } finally {
     setLoading(false);
   }
@@ -185,7 +186,7 @@ const ServicePackagePage = () => {
       setIsPackageModalOpen(true);
     } catch (err) {
       console.error('Error fetching package/services:', err);
-      alert(`ไม่สามารถดึงข้อมูลแพ็คเกจได้: ${err.message}`);
+      errorToast(`ไม่สามารถดึงข้อมูลแพ็คเกจได้: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -244,13 +245,13 @@ const handleSubmitPackage = async (e) => {
     setLoading(true);
     
     if (!editingPackage.Package_Title) {
-      alert('กรุณาระบุชื่อแพ็คเกจ');
+      warning('กรุณาระบุชื่อแพ็คเกจ');
       setLoading(false);
       return;
     }
     
     if (selectedServices.length === 0) {
-      alert('กรุณาเลือกบริการอย่างน้อย 1 รายการ');
+      warning('กรุณาเลือกบริการอย่างน้อย 1 รายการ');
       setLoading(false);
       return;
     }
@@ -280,7 +281,7 @@ const handleSubmitPackage = async (e) => {
         pkg._id === result._id ? result : pkg
       ));
       
-      alert('แก้ไขแพ็คเกจสำเร็จ');
+    successToast('แก้ไขแพ็คเกจสำเร็จ!');
     } else {
       // สร้าง Package ใหม่
       result = await createPackage(packageData);
@@ -288,7 +289,7 @@ const handleSubmitPackage = async (e) => {
       // เพิ่มแพ็คเกจใหม่เข้าไปในรายการ packages
       setPackages([...packages, result]);
       
-      alert('สร้างแพ็คเกจใหม่สำเร็จ');
+     successToast('สร้างแพ็คเกจใหม่สำเร็จ!');
     }
     
     // รีเซ็ตข้อมูลและปิด Modal
@@ -297,7 +298,7 @@ const handleSubmitPackage = async (e) => {
     setIsPackageModalOpen(false);
   } catch (err) {
     console.error('Error saving package:', err);
-    alert(`เกิดข้อผิดพลาด: ${err.message}`);
+    errorToast(`เกิดข้อผิดพลาด: ${err.message}`);
   } finally {
     setLoading(false);
   }
@@ -321,11 +322,11 @@ const handleSubmitPackage = async (e) => {
       if (activeTab === 'services' && serviceToDelete) {
         await deleteService(serviceToDelete.id);
         setServices(services.filter(service => service._id !== serviceToDelete.id));
-        alert('ลบบริการสำเร็จ');
+        successToast('ลบบริการสำเร็จ!');
       } else if (activeTab === 'packages' && packageToDelete) {
         await deletePackage(packageToDelete.id);
         setPackages(packages.filter(pkg => pkg._id !== packageToDelete.id));
-        alert('ลบแพ็คเกจสำเร็จ');
+        successToast('ลบแพ็คเกจสำเร็จ!');
       }
       
       setDeleteConfirmModal(false);
@@ -333,7 +334,7 @@ const handleSubmitPackage = async (e) => {
       setPackageToDelete(null);
     } catch (err) {
       console.error(`Error deleting:`, err);
-      alert(`เกิดข้อผิดพลาดในการลบ: ${err.message}`);
+      errorToast(`เกิดข้อผิดพลาดในการลบ: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -493,7 +494,7 @@ const handleSubmitPackage = async (e) => {
       // ตรวจสอบความถูกต้องของข้อมูล
       const { isValid, errorMessage } = validateRequiredDocuments(newService.RequiredDocuments);
       if (!isValid) {
-        alert(errorMessage);
+        warning(errorMessage);
         return;
       }
       
@@ -527,10 +528,10 @@ const handleSubmitPackage = async (e) => {
       setServiceImage(null);
       setImagePreview(null);
       setIsCreateModalOpen(false);
-      alert('สร้างบริการใหม่สำเร็จ');
+      successToast('สร้างบริการใหม่สำเร็จ!');
     } catch (err) {
       console.error('Error creating service:', err);
-      alert(`เกิดข้อผิดพลาดในการสร้างบริการ: ${err.message}`);
+      errorToast(`เกิดข้อผิดพลาดในการสร้างบริการ: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -544,7 +545,7 @@ const handleSubmitPackage = async (e) => {
       // ตรวจสอบความถูกต้องของข้อมูล
       const { isValid, errorMessage } = validateRequiredDocuments(editService.RequiredDocuments);
       if (!isValid) {
-        alert(errorMessage)
+        warning(errorMessage);
         return;
       }
       
@@ -563,10 +564,10 @@ const handleSubmitPackage = async (e) => {
       setEditServiceImage(null);
       setEditImagePreview(null);
       setIsEditModalOpen(false);
-      alert('แก้ไขบริการสำเร็จ');
+      successToast('แก้ไขบริการสำเร็จ!');
     } catch (err) {
       console.error('Error updating service:', err);
-      alert(`เกิดข้อผิดพลาดในการแก้ไขบริการ: ${err.message}`);
+      errorToast(`เกิดข้อผิดพลาดในการแก้ไขบริการ: ${err.message}`);
     } finally {
       setLoading(false);
     }

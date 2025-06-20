@@ -3,12 +3,14 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { getOrderById, createSurveyCoupon } from '@/services/apiService';
+import useToast from '@/hooks/useToast'; // เพิ่ม import
 import { ClipboardCopy, Gift, AlertTriangle, X, Check } from 'lucide-react';
 
 export default function DocumentSubmissionSuccessPage() {
   const params = useParams();
   const router = useRouter();
   const { orderId } = params;
+  const toast = useToast(); // เพิ่ม hook
   
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,13 +49,15 @@ export default function DocumentSubmissionSuccessPage() {
   }, [orderId]);
   
   const goToDashboard = () => {
-    router.push('/background-check/dashboard');
+    router.push('/dashboard');
   };
 
   const copyTrackingNumber = () => {
     const trackingNumber = order?.TrackingNumber || "SCT26993706424";
     navigator.clipboard.writeText(trackingNumber);
     setCopied(true);
+    // แสดง toast แทน setTimeout
+    toast.success('คัดลอกรหัสติดตามสำเร็จ');
     setTimeout(() => setCopied(false), 2000);
   };
   
@@ -83,18 +87,14 @@ export default function DocumentSubmissionSuccessPage() {
         }
         setShowModal(true);
       } else {
-        // มีข้อผิดพลาด
-        setModalType('error');
-        setModalMessage(response.message || 'เกิดข้อผิดพลาดในการรับคูปอง กรุณาลองใหม่อีกครั้ง');
-        setShowModal(true);
+        // มีข้อผิดพลาด - แสดง toast แทน modal
+        toast.error(response.message || 'เกิดข้อผิดพลาดในการรับคูปอง กรุณาลองใหม่อีกครั้ง');
       }
     } catch (error) {
       console.error("Error with survey coupon:", error);
       
-      // แสดง modal ข้อผิดพลาด
-      setModalType('error');
-      setModalMessage('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งภายหลัง');
-      setShowModal(true);
+      // แสดง toast error แทน modal
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งภายหลัง');
     } finally {
       setSurveyLoading(false);
     }
@@ -223,7 +223,7 @@ export default function DocumentSubmissionSuccessPage() {
         </div>
       </div>
       
-      {/* Modal */}
+      {/* Modal - เก็บไว้สำหรับการแสดงข้อมูลคูปอง */}
       {showModal && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">

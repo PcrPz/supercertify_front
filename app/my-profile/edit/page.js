@@ -5,6 +5,7 @@ import { Loader2, ChevronLeft, Lock, Eye, EyeOff, User, Mail, Phone, Building, S
 import profileApi from '@/services/profileApi';
 import { reloadUserProfile } from '@/services/auth';
 import { Dialog, Transition } from '@headlessui/react';
+import useToast from '@/hooks/useToast'; // เพิ่ม import useToast
 
 // Separate component for the search params logic
 function EditProfileContent() {
@@ -41,6 +42,9 @@ function EditProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
+  // เพิ่ม useToast hook
+  const { success: successToast, error: errorToast, warning, info, loading: toastLoading, update } = useToast();
+
   // โหลดข้อมูลผู้ใช้
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -144,7 +148,7 @@ function EditProfileContent() {
       // ตรวจสอบประเภทไฟล์
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
-        setValidationMessage('ประเภทไฟล์ไม่ถูกต้อง กรุณาอัปโหลดไฟล์รูปภาพเท่านั้น (JPEG, PNG, GIF, WEBP)');
+        warning('ประเภทไฟล์ไม่ถูกต้อง กรุณาอัปโหลดไฟล์รูปภาพเท่านั้น (JPEG, PNG, GIF, WEBP)');
         setValidationField('profilePicture');
         return;
       }
@@ -152,7 +156,7 @@ function EditProfileContent() {
       // ตรวจสอบขนาดไฟล์
       const maxSize = 5 * 1024 * 1024; // 5MB
       if (file.size > maxSize) {
-        setValidationMessage('ขนาดไฟล์ใหญ่เกินไป กรุณาอัปโหลดไฟล์ขนาดไม่เกิน 5MB');
+        warning('ขนาดไฟล์ใหญ่เกินไป กรุณาอัปโหลดไฟล์ขนาดไม่เกิน 5MB');
         setValidationField('profilePicture');
         return;
       }
@@ -169,6 +173,9 @@ function EditProfileContent() {
       // ล้างข้อความ validation เมื่อผู้ใช้เลือกไฟล์ใหม่
       setValidationMessage('');
       setValidationField('');
+      
+      // แสดง toast แจ้งว่าเลือกรูปสำเร็จ
+      info('เลือกรูปโปรไฟล์สำเร็จ กรุณากดบันทึกข้อมูลเพื่อยืนยันการเปลี่ยนแปลง');
     }
   };
   
@@ -184,13 +191,13 @@ function EditProfileContent() {
   const handleUpdateProfile = async () => {
     // ตรวจสอบข้อมูลก่อนส่ง
     if (!formData.username.trim()) {
-      setValidationMessage('กรุณากรอกชื่อผู้ใช้');
+      warning('กรุณากรอกชื่อผู้ใช้');
       setValidationField('username');
       return;
     }
     
     if (formData.username.length < 3) {
-      setValidationMessage('ชื่อผู้ใช้ต้องมีความยาวอย่างน้อย 3 ตัวอักษร');
+      warning('ชื่อผู้ใช้ต้องมีความยาวอย่างน้อย 3 ตัวอักษร');
       setValidationField('username');
       return;
     }
@@ -199,12 +206,13 @@ function EditProfileContent() {
     if (formData.phoneNumber) {
       const phoneRegex = /^[0-9\+\-\s]+$/;
       if (!phoneRegex.test(formData.phoneNumber)) {
-        setValidationMessage('รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง');
+        warning('รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง');
         setValidationField('phoneNumber');
         return;
       }
     }
     
+    let loadingToastId;
     setSaving(true);
     setError('');
     setSuccess('');
@@ -213,11 +221,25 @@ function EditProfileContent() {
     setIsConfirmModalOpen(false);
     
     try {
+      // แสดง loading toast
+      loadingToastId = toastLoading('กำลังบันทึกข้อมูลโปรไฟล์...');
+      
       // อัปเดตรูปโปรไฟล์ (ถ้ามีการเปลี่ยนแปลง)
       if (profilePicture) {
         const pictureResult = await profileApi.uploadProfilePicture(profilePicture);
         if (!pictureResult.success) {
-          setValidationMessage(pictureResult.message || 'ไม่สามารถอัปโหลดรูปโปรไฟล์ได้');
+          // อัพเดต loading toast เป็น error
+          update(loadingToastId, {
+            render: pictureResult.message || 'ไม่สามารถอัปโหลดรูปโปรไฟล์ได้',
+            type: 'error',
+            isLoading: false,
+            autoClose: 4000,
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )
+          });
           setValidationField('profilePicture');
           setSaving(false);
           return;
@@ -228,27 +250,72 @@ function EditProfileContent() {
       const result = await profileApi.updateProfile(formData);
       
       if (result.success) {
-        // แสดงข้อความสำเร็จสั้นๆ
-        alert('บันทึกข้อมูลเรียบร้อยแล้ว กำลังรีเฟรชหน้า...');
+        // อัพเดต loading toast เป็น success
+        update(loadingToastId, {
+          render: 'บันทึกข้อมูลเรียบร้อยแล้ว! กำลังรีเฟรชหน้า... 🎉',
+          type: 'success',
+          isLoading: false,
+          autoClose: 2000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
         
         // รีโหลดข้อมูลผู้ใช้
         await reloadUserProfile();
         
-        // รีโหลดหน้าเว็บ
-        window.location.reload();
+        // รอ 2 วินาทีแล้วรีโหลดหน้า
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       } else {
         // ตรวจสอบประเภทของ error
         if (result.errorCode === 'USERNAME_ALREADY_EXISTS') {
-          // แสดงข้อความเตือนแทนข้อความผิดพลาด
+          // อัพเดต loading toast เป็น warning
+          update(loadingToastId, {
+            render: result.message || 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว',
+            type: 'warning',
+            isLoading: false,
+            autoClose: 4000,
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )
+          });
           setValidationMessage(result.message || 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว');
           setValidationField('username');
         } else if (result.errorCode === 'VALIDATION_ERROR' && result.validationErrors) {
           // กรณีมี validation errors หลายรายการ
           const firstErrorField = Object.keys(result.validationErrors)[0];
+          update(loadingToastId, {
+            render: result.validationErrors[firstErrorField],
+            type: 'warning',
+            isLoading: false,
+            autoClose: 4000,
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )
+          });
           setValidationMessage(result.validationErrors[firstErrorField]);
           setValidationField(firstErrorField);
         } else {
-          // แสดงข้อความผิดพลาดทั่วไป
+          // อัพเดต loading toast เป็น error
+          update(loadingToastId, {
+            render: result.message || 'ไม่สามารถอัปเดตโปรไฟล์ได้',
+            type: 'error',
+            isLoading: false,
+            autoClose: 4000,
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )
+          });
           setError(result.message || 'ไม่สามารถอัปเดตโปรไฟล์ได้');
         }
       }
@@ -256,6 +323,23 @@ function EditProfileContent() {
       setSaving(false);
     } catch (error) {
       console.error('Error in handleUpdateProfile:', error);
+      
+      // อัพเดต loading toast เป็น error
+      if (loadingToastId) {
+        update(loadingToastId, {
+          render: 'เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง',
+          type: 'error',
+          isLoading: false,
+          autoClose: 4000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
+      } else {
+        errorToast('เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง');
+      }
       setError('เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง');
       setSaving(false);
     }
@@ -265,23 +349,24 @@ function EditProfileContent() {
   const handleUpdatePassword = async () => {
     // ตรวจสอบข้อมูลก่อนส่ง
     if (!passwordData.currentPassword) {
-      setValidationMessage('กรุณากรอกรหัสผ่านปัจจุบัน');
+      warning('กรุณากรอกรหัสผ่านปัจจุบัน');
       setValidationField('currentPassword');
       return;
     }
     
     if (!passwordData.newPassword) {
-      setValidationMessage('กรุณากรอกรหัสผ่านใหม่');
+      warning('กรุณากรอกรหัสผ่านใหม่');
       setValidationField('newPassword');
       return;
     }
     
     if (passwordData.newPassword.length < 6) {
-      setValidationMessage('รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+      warning('รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
       setValidationField('newPassword');
       return;
     }
     
+    let loadingToastId;
     setSaving(true);
     setError('');
     setSuccess('');
@@ -290,6 +375,9 @@ function EditProfileContent() {
     setIsPasswordModalOpen(false);
     
     try {
+      // แสดง loading toast
+      loadingToastId = toastLoading('กำลังเปลี่ยนรหัสผ่าน...');
+      
       // อัปเดตรหัสผ่าน
       const result = await profileApi.updateProfile({
         currentPassword: passwordData.currentPassword,
@@ -297,26 +385,71 @@ function EditProfileContent() {
       });
       
       if (result.success) {
-        // แสดงข้อความสำเร็จ
-        alert('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว กำลังรีเฟรชหน้า...');
+        // อัพเดต loading toast เป็น success
+        update(loadingToastId, {
+          render: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว! กำลังรีเฟรชหน้า... 🎉',
+          type: 'success',
+          isLoading: false,
+          autoClose: 2000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
         
         // รีโหลดข้อมูลผู้ใช้
         await reloadUserProfile();
         
-        // รีโหลดหน้าเว็บ
-        window.location.reload();
+        // รอ 2 วินาทีแล้วรีโหลดหน้า
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       } else {
         // ตรวจสอบประเภทของ error
         if (result.errorCode === 'INVALID_CURRENT_PASSWORD') {
-          // แสดงข้อความเตือนแทนข้อความผิดพลาด
+          // อัพเดต loading toast เป็น warning
+          update(loadingToastId, {
+            render: result.message || 'รหัสผ่านปัจจุบันไม่ถูกต้อง',
+            type: 'warning',
+            isLoading: false,
+            autoClose: 4000,
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )
+          });
           setValidationMessage(result.message || 'รหัสผ่านปัจจุบันไม่ถูกต้อง');
           setValidationField('currentPassword');
         } else if (result.errorCode === 'VALIDATION_ERROR') {
-          // แสดงข้อความเตือนแทนข้อความผิดพลาด
+          // อัพเดต loading toast เป็น warning
+          update(loadingToastId, {
+            render: result.message || 'ข้อมูลไม่ถูกต้อง',
+            type: 'warning',
+            isLoading: false,
+            autoClose: 4000,
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )
+          });
           setValidationMessage(result.message || 'ข้อมูลไม่ถูกต้อง');
           setValidationField(result.validationErrors?.newPassword ? 'newPassword' : 'currentPassword');
         } else {
-          // แสดงข้อความผิดพลาดทั่วไป
+          // อัพเดต loading toast เป็น error
+          update(loadingToastId, {
+            render: result.message || 'ไม่สามารถเปลี่ยนรหัสผ่านได้',
+            type: 'error',
+            isLoading: false,
+            autoClose: 4000,
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )
+          });
           setError(result.message || 'ไม่สามารถเปลี่ยนรหัสผ่านได้');
         }
       }
@@ -324,6 +457,23 @@ function EditProfileContent() {
       setSaving(false);
     } catch (error) {
       console.error('Error in handleUpdatePassword:', error);
+      
+      // อัพเดต loading toast เป็น error
+      if (loadingToastId) {
+        update(loadingToastId, {
+          render: 'เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง',
+          type: 'error',
+          isLoading: false,
+          autoClose: 4000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
+      } else {
+        errorToast('เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง');
+      }
       setError('เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง');
       setSaving(false);
     }
