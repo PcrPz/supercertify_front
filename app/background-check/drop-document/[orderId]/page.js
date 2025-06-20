@@ -81,7 +81,6 @@ export default function DocumentSubmissionPage() {
             router.push(`/background-check/document-success/${orderId}`);
           }, 1500);
         } else {
-          // เปลี่ยนจาก alert เป็น toast.error
           toast.error(`เกิดข้อผิดพลาดในการอัปเดตสถานะ: ${result.message}`);
         }
       } else {
@@ -89,7 +88,6 @@ export default function DocumentSubmissionPage() {
         toast.dismiss(loadingToast);
         
         // ถ้าสถานะไม่ใช่ payment_verified ให้แจ้งเตือนผู้ใช้
-        // เปลี่ยนจาก alert เป็น toast.success
         toast.success('อัปโหลดเอกสารเสร็จสมบูรณ์แล้ว');
         // รอให้ toast แสดงก่อนนำทาง
         setTimeout(() => {
@@ -98,7 +96,6 @@ export default function DocumentSubmissionPage() {
       }
     } catch (error) {
       console.error('Error submitting documents:', error);
-      // เปลี่ยนจาก alert เป็น toast.error
       toast.error('เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง');
     } finally {
       setSubmitting(false);

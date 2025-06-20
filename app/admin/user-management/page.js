@@ -1,8 +1,10 @@
+
 "use client"
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUsersByRole, getAllUsers, updateUserRole, deleteUser } from '@/services/profileApi';
 import { getOrderCountByUser } from '@/services/apiService';
+import useToast from '@/hooks/useToast'; // เพิ่ม import useToast
 
 // Main component
 export default function AdminUserManagement() {
@@ -20,6 +22,9 @@ export default function AdminUserManagement() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [activeMenu, setActiveMenu] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  // เพิ่ม useToast hook
+  const { success: successToast, error: errorToast, warning, info, loading: toastLoading, update } = useToast();
 
   // Theme colors
   const colors = {
@@ -170,7 +175,12 @@ export default function AdminUserManagement() {
   const handleConfirmPromote = async () => {
     if (!selectedUser) return;
     
+    let loadingToastId;
+    
     try {
+      // แสดง loading toast
+      loadingToastId = toastLoading('กำลังเพิ่มสิทธิ์ผู้ดูแลระบบ...');
+      
       const response = await updateUserRole(selectedUser._id, 'admin');
       
       if (response && response.success) {
@@ -180,14 +190,51 @@ export default function AdminUserManagement() {
         setShowConfirmModal(false);
         setSelectedUser(null);
         
-        // แสดงข้อความสำเร็จ
-        alert("เพิ่มสิทธิ์ผู้ดูแลระบบสำเร็จ");
+        // อัพเดต loading toast เป็น success
+        update(loadingToastId, {
+          render: 'เพิ่มสิทธิ์ผู้ดูแลระบบสำเร็จ! 🎉',
+          type: 'success',
+          isLoading: false,
+          autoClose: 3000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
       } else {
-        alert(response?.message || "เกิดข้อผิดพลาดในการเปลี่ยนบทบาทผู้ใช้");
+        // อัพเดต loading toast เป็น error
+        update(loadingToastId, {
+          render: response?.message || "เกิดข้อผิดพลาดในการเปลี่ยนบทบาทผู้ใช้",
+          type: 'error',
+          isLoading: false,
+          autoClose: 4000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
       }
     } catch (err) {
       console.error("เกิดข้อผิดพลาดในการเปลี่ยนบทบาทผู้ใช้:", err);
-      alert("ไม่สามารถเปลี่ยนบทบาทผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง");
+      
+      // อัพเดต loading toast เป็น error
+      if (loadingToastId) {
+        update(loadingToastId, {
+          render: "ไม่สามารถเปลี่ยนบทบาทผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง",
+          type: 'error',
+          isLoading: false,
+          autoClose: 4000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
+      } else {
+        errorToast("ไม่สามารถเปลี่ยนบทบาทผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง");
+      }
     }
   };
 
@@ -208,7 +255,12 @@ export default function AdminUserManagement() {
   const handleConfirmDelete = async () => {
     if (!selectedUser) return;
     
+    let loadingToastId;
+    
     try {
+      // แสดง loading toast
+      loadingToastId = toastLoading('กำลังลบผู้ใช้...');
+      
       const response = await deleteUser(selectedUser._id);
       
       if (response && response.success) {
@@ -220,18 +272,54 @@ export default function AdminUserManagement() {
         setFilteredUsers(prevFiltered => prevFiltered.filter(user => user._id !== selectedUser._id));
         setTotalUsers(prevTotal => prevTotal - 1);
         
-        // แสดงข้อความสำเร็จด้วย toast หรือ alert ตามที่ต้องการ
-        alert(response.message || "ลบผู้ใช้สำเร็จ");
+        // อัพเดต loading toast เป็น success
+        update(loadingToastId, {
+          render: response.message || "ลบผู้ใช้สำเร็จ! 🗑️",
+          type: 'success',
+          isLoading: false,
+          autoClose: 3000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
         
         // ล้างค่า selectedUser
         setSelectedUser(null);
       } else {
-        // แสดงข้อความผิดพลาด
-        alert(response?.message || "เกิดข้อผิดพลาดในการลบผู้ใช้");
+        // อัพเดต loading toast เป็น error
+        update(loadingToastId, {
+          render: response?.message || "เกิดข้อผิดพลาดในการลบผู้ใช้",
+          type: 'error',
+          isLoading: false,
+          autoClose: 4000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
       }
     } catch (err) {
       console.error("เกิดข้อผิดพลาดในการลบผู้ใช้:", err);
-      alert("ไม่สามารถลบผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง");
+      
+      // อัพเดต loading toast เป็น error
+      if (loadingToastId) {
+        update(loadingToastId, {
+          render: "ไม่สามารถลบผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง",
+          type: 'error',
+          isLoading: false,
+          autoClose: 4000,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        });
+      } else {
+        errorToast("ไม่สามารถลบผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง");
+      }
     }
   };
   
