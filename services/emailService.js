@@ -142,3 +142,56 @@ export async function sendCompletedResultsNotification(order, results) {
     return false;
   }
 }
+/**
+ * ส่งอีเมลแจ้งเตือนลูกค้าเมื่อการชำระเงินถูกปฏิเสธ
+ * @param {Object} order ข้อมูลคำสั่งซื้อ
+ * @returns {Promise<boolean>} ผลการส่งอีเมล
+ */
+export async function sendPaymentRejectedToUser(order) {
+  console.log('Sending payment rejection email to user for order:', order.TrackingNumber);
+  
+  // ตรวจสอบข้อมูลที่จำเป็น
+  if (!order || !order.user || !order.user.email) {
+    console.error('Missing required order information for sending rejection email');
+    return false;
+  }
+  
+  try {
+    // เรียกใช้ API Route App Router
+    console.log('Calling payment-rejected API with order data:', {
+      trackingNumber: order.TrackingNumber,
+      customerEmail: order.user.email,
+      customerName: order.user.username || order.user.fullName,
+      totalPrice: order.TotalPrice,
+      orderId: order._id
+    });
+    
+    const response = await fetch('/api/email/payment-rejected', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        trackingNumber: order.TrackingNumber,
+        customerEmail: order.user.email,
+        customerName: order.user.username || order.user.fullName,
+        totalPrice: order.TotalPrice,
+        orderId: order._id,
+        paymentInfo: order.payment
+      }),
+    });
+    
+    const result = await response.json();
+    console.log('Payment rejection email API response:', result);
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to send email notification');
+    }
+    
+    console.log('Payment rejection email sent successfully to:', order.user.email);
+    return true;
+  } catch (error) {
+    console.error('Error sending payment rejection email:', error);
+    return false;
+  }
+}

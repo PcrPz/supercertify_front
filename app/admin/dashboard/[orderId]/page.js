@@ -3,8 +3,17 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getOrderById, updateOrderStatus, updatePaymentStatus ,getDocumentsByCandidate} from '@/services/apiService';
-import { sendPaymentApprovedToUser } from '@/services/emailService'; // ถ้ามี
+import { 
+  getOrderById, 
+  updateOrderStatus, 
+  updatePaymentStatus, 
+  getDocumentsByCandidate 
+} from '@/services/apiService';
+import { 
+  sendPaymentApprovedToUser, 
+  sendPaymentRejectedToUser 
+} from '@/services/emailService';
+import useToast from '@/hooks/useToast'; // เพิ่ม import useToast
 import { 
   CheckCircleIcon, 
   ClockIcon, 
@@ -29,6 +38,9 @@ export default function AdminOrderDetailPage() {
   const [expandedCandidate, setExpandedCandidate] = useState(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [updateError, setUpdateError] = useState(null);
+  
+  // เพิ่ม useToast hook
+  const { success: successToast, error: errorToast, warning, info, loading: toastLoading, update } = useToast();
   
   useEffect(() => {
     async function fetchOrderDetails() {
@@ -262,68 +274,95 @@ const PendingVerificationContent = ({
     }
   };
 
-  // ฟังก์ชันอัปเดตสถานะการชำระเงิน
-  const handleUpdatePaymentStatus = async (orderId, newStatus) => {
+// ฟังก์ชันอัปเดตสถานะการชำระเงิน (แก้ไขให้ใช้ toast)
+const handleUpdatePaymentStatus = async (orderId, newStatus) => {
+  let loadingToastId;
+  
+  try {
+    setProcessing(true);
+    
+    if (!order || !order.payment) {
+      throw new Error('ไม่พบข้อมูลการชำระเงิน');
+    }
+    
+    // แสดง loading toast
+    loadingToastId = toastLoading('กำลังอัปเดตสถานะการชำระเงิน...');
+    
+    // ใช้ payment ID แทน order ID
+    const paymentId = order.payment._id;
+    console.log('Updating payment status for paymentId:', paymentId);
+    
+    // ปรับเป็นรูปแบบที่ backend ต้องการ
+    const result = await updatePaymentStatus(paymentId, {
+      paymentStatus: newStatus
+    });
+    
+    if (result.success) {
+      // อัปเดตสถานะ Order ตามสถานะการชำระเงิน
+      if (newStatus === 'completed') {
+        await updateOrderStatus(orderId, 'payment_verified');
+        
+        // ดึงข้อมูล order ล่าสุด
+        const updatedOrder = await getOrderById(orderId);
+        
+        // ส่งอีเมลแจ้งเตือนลูกค้า (ถ้ามีฟังก์ชันนี้)
+        if (typeof sendPaymentApprovedToUser === 'function') {
+          await sendPaymentApprovedToUser(updatedOrder);
+        }
+      }  else if (newStatus === 'failed' || newStatus === 'refunded') {
+    await updateOrderStatus(orderId, 'awaiting_payment');
+    
+    // ส่งอีเมลแจ้งเตือนลูกค้าว่าการชำระเงินถูกปฏิเสธ
     try {
-      setProcessing(true);
+      console.log('Payment was rejected, preparing to send notification email...');
       
-      if (!order || !order.payment) {
-        throw new Error('ไม่พบข้อมูลการชำระเงิน');
+      // ดึงข้อมูล order ล่าสุด
+      console.log('Fetching updated order data...');
+      const updatedOrder = await getOrderById(orderId);
+      console.log('Updated order data fetched:', updatedOrder);
+      
+      // ส่งอีเมลแจ้งเตือนลูกค้า
+      if (typeof sendPaymentRejectedToUser === 'function') {
+        console.log('Sending payment rejection email...');
+        const emailResult = await sendPaymentRejectedToUser(updatedOrder);
+        console.log('Payment rejection email result:', emailResult);
+      } else {
+        console.warn('sendPaymentRejectedToUser function not available');
+      }
+    } catch (emailError) {
+      console.error('Failed to send payment rejection email:', emailError);
+      // ไม่ต้องยกเลิกกระบวนการทั้งหมดหากส่งอีเมลไม่สำเร็จ
+    }
+      } else if (newStatus === 'pending_verification') {
+        await updateOrderStatus(orderId, 'pending_verification');
       }
       
-      // ใช้ payment ID แทน order ID
-      const paymentId = order.payment._id;
-      console.log('Updating payment status for paymentId:', paymentId);
-      
-      // ปรับเป็นรูปแบบที่ backend ต้องการ
-      const result = await updatePaymentStatus(paymentId, {
-        paymentStatus: newStatus
+      // อัพเดต loading toast เป็น success
+      update(loadingToastId, {
+        render: 'อัปเดตสถานะการชำระเงินสำเร็จ! กำลังรีเฟรชหน้า...',
+        type: 'success',
+        isLoading: false,
+        autoClose: 2000,
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        )
       });
       
-      if (result.success) {
-        // อัปเดตสถานะ Order ตามสถานะการชำระเงิน
-        if (newStatus === 'completed') {
-          await updateOrderStatus(orderId, 'payment_verified');
-        } else if (newStatus === 'failed' || newStatus === 'refunded') {
-          await updateOrderStatus(orderId, 'awaiting_payment');
-        } else if (newStatus === 'pending_verification') {
-          await updateOrderStatus(orderId, 'pending_verification');
-        }
-        
-        // ถ้าสถานะเป็น 'completed' ให้ส่งอีเมลแจ้งเตือนลูกค้า
-        if (newStatus === 'completed') {
-          try {
-            // ดึงข้อมูล order ล่าสุด
-            const updatedOrder = await getOrderById(orderId);
-            
-            // ส่งอีเมลแจ้งเตือนลูกค้า (ถ้ามีฟังก์ชันนี้)
-            if (typeof sendPaymentApprovedToUser === 'function') {
-              await sendPaymentApprovedToUser(updatedOrder);
-            }
-          } catch (emailError) {
-            console.error('Failed to send email notification:', emailError);
-            // ไม่ต้องยกเลิกกระบวนการทั้งหมดหากส่งอีเมลไม่สำเร็จ
-          }
-        }
-        
-        alert('อัปเดตสถานะการชำระเงินสำเร็จ');
-        
-        // ปรับปรุงการรีเฟรชเพื่อให้หน้าทำงานได้ราบรื่นขึ้น
-        // วิธีที่ 1: ใช้ window.location.reload() เพื่อรีโหลดหน้าทั้งหมด (วิธีนี้ดีที่สุดในกรณีนี้)
+      // รีโหลดหน้าหลังจาก 2 วินาที
+      setTimeout(() => {
         window.location.reload();
-        
-        // หรือวิธีที่ 2: ใช้ router.push แทน router.refresh เพื่อนำทางไปยังหน้าเดิมอีกครั้ง
-        // router.push(`/admin/dashboard/${orderId}`);
-      } else {
-        throw new Error(result.message || 'การอัปเดตสถานะล้มเหลว');
-      }
-    } catch (error) {
-      console.error('Error updating payment status:', error);
-      alert(`เกิดข้อผิดพลาด: ${error.message}`);
-    } finally {
-      setProcessing(false);
+      }, 2000);
+    } else {
+      throw new Error(result.message || 'การอัปเดตสถานะล้มเหลว');
     }
-  };
+  } catch (error) {
+    // ส่วนจัดการข้อผิดพลาดที่มีอยู่เดิม
+  } finally {
+    setProcessing(false);
+  }
+};
 
   return (
     <div className="bg-[#F5F7FF] rounded-xl p-6 mt-6">
@@ -489,15 +528,15 @@ const PendingVerificationContent = ({
         </div>
       )}
       
-      {/* Modal สำหรับแสดงรูปภาพขนาดใหญ่ */}
+      {/* Modal สำหรับแสดงรูปภาพขนาดใหญ่ - แก้ไขพื้นหลังให้เบลอ */}
       {zoomedImage && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
           onClick={handleCloseZoom}
         >
           <div className="relative max-w-4xl max-h-screen p-4">
             <button
-              className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg text-gray-800 hover:bg-gray-200 transition-colors"
+              className="absolute -top-2 -right-2 bg-white rounded-full p-3 shadow-lg text-gray-800 hover:bg-gray-200 transition-colors z-10"
               onClick={() => setZoomedImage(null)}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -507,7 +546,7 @@ const PendingVerificationContent = ({
             <img 
               src={zoomedImage} 
               alt="สลิปการโอนเงิน (ขยาย)" 
-              className="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl"
+              className="max-h-[85vh] max-w-full object-contain rounded-xl shadow-2xl border-4 border-white"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -1071,11 +1110,57 @@ const ProcessingContent = ({ order, candidates, expandedCandidate, setExpandedCa
 
 const OrderProgressBar = ({ currentStatus }) => {
   const steps = [
-    { id: 1, name: 'คำขอความยินยอม', status: 'awaiting_payment' },
-    { id: 2, name: 'การชำระเงิน', status: 'pending_verification' },
-    { id: 3, name: 'ยืนยันการชำระเงิน', status: 'payment_verified' },
-    { id: 4, name: 'รอดำเนินการ', status: 'processing' },
-    { id: 5, name: 'สำเร็จ', status: 'completed' }
+    { 
+      id: 1, 
+      name: 'รอชำระเงิน', 
+      status: 'awaiting_payment',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      )
+    },
+    { 
+      id: 2, 
+      name: 'ตรวจสอบการชำระเงิน', 
+      status: 'pending_verification',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    },
+    { 
+      id: 3, 
+      name: 'ยืนยันการชำระเงินแล้ว', 
+      status: 'payment_verified',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    },
+    { 
+      id: 4, 
+      name: 'กำลังดำเนินการ', 
+      status: 'processing',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      )
+    },
+    { 
+      id: 5, 
+      name: 'เสร็จสิ้น', 
+      status: 'completed',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+        </svg>
+      )
+    }
   ];
 
   const getCurrentStep = (status) => {
@@ -1084,58 +1169,100 @@ const OrderProgressBar = ({ currentStatus }) => {
     return step ? step.id : 0;
   };
 
+  const getStepState = (stepId, currentStep) => {
+    if (stepId < currentStep) return 'completed';
+    if (stepId === currentStep) return 'current';
+    return 'upcoming';
+  };
+
   const activeStep = getCurrentStep(currentStatus);
-  const percentPerStep = 100 / (steps.length - 1);
-  const progressPercent = (activeStep - 1) * percentPerStep;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+    <div className="bg-white rounded-2xl shadow-sm p-8 mb-8 border border-gray-100">
       <div className="relative">
+        {/* Progress Line Background */}
+        <div className="absolute top-6 left-0 right-0 h-0.5 bg-gray-200" 
+             style={{ 
+               left: '24px', 
+               right: '24px' 
+             }} />
         
-        {/* เส้นพื้นหลัง - เริ่มที่กลางจุดแรก → กลางจุดสุดท้าย */}
-        <div className="absolute top-[14px] left-[calc(12px)] right-[calc(12px)] h-0.5 bg-gray-200 z-0" />
-
-        {/* เส้น active - ระยะความคืบหน้า */}
-        <div
-          className="absolute top-[14px] left-[12px] h-0.5 bg-[#444DDA] z-10 transition-all duration-300"
+        {/* Active Progress Line */}
+        <div 
+          className="absolute top-6 left-6 h-0.5 bg-gradient-to-r from-[#444DDA] to-[#5A67DD] transition-all duration-700 ease-out"
           style={{
-            width: `calc(${progressPercent}% - ${progressPercent === 0 ? 0 : (progressPercent === 100 ? 0 : '0px')})`
+            width: activeStep > 1 ? `calc(${((activeStep - 1) / (steps.length - 1)) * 100}% - 12px)` : '0%'
           }}
         />
 
-        {/* จุด */}
-        <div className="flex justify-between items-center relative z-20">
+        {/* Steps */}
+        <div className="flex justify-between items-start relative">
           {steps.map((step, index) => {
-            const isActive = step.id === activeStep;
-            const isCompleted = step.id < activeStep;
-
+            const stepState = getStepState(step.id, activeStep);
+            
             return (
-              <div key={step.id} className="flex flex-col items-center">
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center
-                    ${isCompleted || isActive ? 'bg-[#444DDA]' : 'bg-white border-2 border-gray-300'}
-                  `}
-                >
-                  {isCompleted && (
-                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-                    </svg>
+              <div key={step.id} className="flex flex-col items-center group">
+                {/* Step Circle */}
+                <div className="relative">
+                  <div
+                    className={`
+                      w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-300 transform
+                      ${stepState === 'completed' 
+                        ? 'bg-gradient-to-r from-[#444DDA] to-[#5A67DD] border-[#444DDA] text-white shadow-lg scale-105' 
+                        : stepState === 'current'
+                        ? 'bg-white border-[#444DDA] text-[#444DDA] shadow-md scale-110 ring-4 ring-[#444DDA] ring-opacity-20'
+                        : 'bg-white border-gray-300 text-gray-400 hover:border-gray-400'
+                      }
+                    `}
+                  >
+                    {stepState === 'completed' ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <div className={`transition-all duration-300 ${stepState === 'current' ? 'scale-110' : ''}`}>
+                        {step.icon}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Current Step Pulse Animation */}
+                  {stepState === 'current' && (
+                    <div className="absolute inset-0 rounded-full border-2 border-[#444DDA] animate-ping opacity-30"></div>
                   )}
                 </div>
 
-                <div className="mt-3 text-center">
-                  <div className={`text-xs font-medium ${isActive || isCompleted ? 'text-[#444DDA]' : 'text-gray-400'}`}>
-                    ขั้นตอนที่ {step.id}
-                  </div>
-                  <div className={`text-sm ${isActive || isCompleted ? 'text-[#444DDA] font-medium' : 'text-gray-500'}`}>
+                {/* Step Label */}
+                <div className="mt-4 text-center max-w-[140px]">
+                  <div 
+                    className={`
+                      text-sm font-medium transition-all duration-300
+                      ${stepState === 'completed' || stepState === 'current' 
+                        ? 'text-[#444DDA]' 
+                        : 'text-gray-500'
+                      }
+                    `}
+                  >
                     {step.name}
+                  </div>
+                  
+                  {/* Step Number */}
+                  <div 
+                    className={`
+                      text-xs mt-1 transition-all duration-300
+                      ${stepState === 'completed' || stepState === 'current' 
+                        ? 'text-[#444DDA] opacity-70' 
+                        : 'text-gray-400'
+                      }
+                    `}
+                  >
+                    ขั้นตอนที่ {step.id}
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
-
       </div>
     </div>
   );
@@ -1219,11 +1346,6 @@ const OrderProgressBar = ({ currentStatus }) => {
                 รหัสการตรวจสอบประวัติ: <span className="text-gray-800">#{order.TrackingNumber}</span>
               </h1>
               {getStatusBadge(order.OrderStatus)}
-            </div>
-            <div className="flex items-center space-x-3">
-              <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200">
-                ยกเลิกการตรวจสอบ
-              </button>
             </div>
           </div>
         </div>
