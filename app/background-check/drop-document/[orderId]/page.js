@@ -189,8 +189,8 @@ export default function DocumentSubmissionPage() {
       {/* หัวตาราง */}
       <div className="rounded-[20px] border-2 border-[#323438] overflow-hidden mb-8">
         <div className="flex py-4 px-8 bg-white items-center">
-          <div className="w-[8%] font-medium text-[#323438]">No.</div>
-          <div className="w-[17%] font-medium text-[#323438]">Full Name</div>
+          <div className="w-[5%] font-medium text-[#323438]">No.</div>
+          <div className="w-[20%] font-medium text-[#323438]">Full Name</div>
           <div className="w-[19%] font-medium text-[#323438]">Company Name</div>
           <div className="w-[19%] font-medium text-[#323438]">Email Address</div>
           <div className="w-[37%] flex justify-between">
@@ -216,8 +216,8 @@ export default function DocumentSubmissionPage() {
         return (
           <div key={candidate._id || index} className="rounded-[26px] border-2 border-[#323438] overflow-hidden mb-6 bg-white shadow hover:shadow-md transition-shadow">
             <div className="flex p-6 px-8 items-center">
-              <div className="w-[8%] font-medium text-[#323438]">{index + 1}</div>
-              <div className="w-[18%] font-medium text-[#323438]">{candidate.C_FullName}</div>
+              <div className="w-[5%] font-medium text-[#323438]">{index + 1}</div>
+              <div className="w-[21%] font-medium text-[#323438]">{candidate.C_FullName}</div>
               <div className="w-[18%] text-[#323438]">{candidate.C_Company_Name || 'Personal'}</div>
               <div className="w-[19%] text-[#323438]">{candidate.C_Email}</div>
               <div className="w-[37%] flex justify-between items-center">

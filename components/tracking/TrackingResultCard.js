@@ -1,13 +1,65 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import TrackingSteps from './TrackingSteps';
 import AwaitingPaymentContent from './status-content/AwaitingPaymentContent';
 import PendingVerificationContent from './status-content/PendingVerificationContent';
 import PaymentVerifiedContent from './status-content/PaymentVerifiedContent';
 import ProcessingContent from './status-content/ProcessingContent';
 import CompletedContent from './status-content/CompletedContent';
+import { getOrderWithDetails } from '@/services/apiService';
 
-const TrackingResultCard = ({ order }) => {
-  if (!order) return null;
+const TrackingResultCard = ({ order: initialOrder, orderId }) => {
+  const [order, setOrder] = useState(initialOrder);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // ถ้ามี orderId ให้เรียก API ดึงข้อมูลล่าสุด
+  useEffect(() => {
+    if (orderId) {
+      const fetchOrderDetails = async () => {
+        try {
+          setLoading(true);
+          const orderData = await getOrderWithDetails(orderId);
+          setOrder(orderData);
+          setError(null);
+        } catch (err) {
+          console.error('Error fetching order details:', err);
+          setError('ไม่สามารถโหลดข้อมูลคำสั่งซื้อได้');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchOrderDetails();
+    }
+  }, [orderId]);
+
+  if (!order && !loading) return null;
+  
+  if (loading) {
+    return (
+      <div className="w-full max-w-7xl mx-auto">
+        <div className="text-center py-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#444DDA] mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full max-w-7xl mx-auto">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-md">
+          <div className="flex">
+            <svg className="h-5 w-5 text-red-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // แปลงสถานะเป็นตัวเลขสำหรับแสดงขั้นตอน
   const getStepNumber = (status) => {

@@ -358,13 +358,14 @@ useEffect(() => {
     
     // ตรวจสอบว่ากรอกข้อมูลครบทุกช่องที่จำเป็น
     const isValid = applicants.every(applicant => 
-      applicant.name.trim() !== '' && 
+      applicant.firstName.trim() !== '' &&     // ✅ ตรวจสอบชื่อ
+      applicant.lastName.trim() !== '' &&      // ✅ ตรวจสอบนามสกุล
       applicant.email.trim() !== '' && 
       (checkMode !== 'company' || applicant.company.trim() !== '')
     );
-    
+
     if (!isValid) {
-      alert('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+      alert('กรุณากรอกข้อมูลให้ครบทุกช่อง (ชื่อ, นามสกุล, อีเมล)');
       return;
     }
     
@@ -442,10 +443,11 @@ useEffect(() => {
         });
         
         return {
-          C_FullName: app.name,
+          C_FirstName: app.firstName.trim(),  // ✅ ส่งชื่อ
+          C_LastName: app.lastName.trim(),    // ✅ ส่งนามสกุล
           C_Email: app.email,
           C_Company_Name: app.company || "",
-          services: flattenedServices  // Service IDs ที่แตกออกมาแล้ว
+          services: flattenedServices
         };
       });
       
@@ -602,14 +604,35 @@ useEffect(() => {
                   </h3>
                 </div>
                 
-                <input
-                  type="text"
-                  placeholder="ชื่อเต็ม"
-                  value={applicant.name}
-                  onChange={(e) => updateApplicant(applicant.id, 'name', e.target.value)}
-                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      ชื่อ <span className="text-red-500">*</span>
+    </label>
+    <input
+      type="text"
+      placeholder="ชื่อ"
+      value={applicant.firstName}
+      onChange={(e) => updateApplicant(applicant.id, 'firstName', e.target.value)}
+      className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+      required
+    />
+  </div>
+  
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      นามสกุล <span className="text-red-500">*</span>
+    </label>
+    <input
+      type="text"
+      placeholder="นามสกุล"
+      value={applicant.lastName}
+      onChange={(e) => updateApplicant(applicant.id, 'lastName', e.target.value)}
+      className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+      required
+    />
+  </div>
+</div>
                 
                 {checkMode === 'company' && (
                   <input
@@ -622,7 +645,11 @@ useEffect(() => {
                   />
                 )}
                 
+
                 <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    อีเมล <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="email"
                     placeholder="อีเมล"

@@ -82,63 +82,67 @@ export async function sendPaymentApprovedToUser(order) {
  * @returns {Promise<boolean>} ผลการส่งอีเมล
  */
 export async function sendCompletedResultsNotification(order, results) {
-  console.log(`📧 [sendCompletedResultsNotification] Starting for order ${order.TrackingNumber}`);
+  console.log(`📧 Starting email notification for order: ${order._id || order.TrackingNumber}`);
   
-  // ตรวจสอบข้อมูลที่จำเป็น
-  if (!order.user || !order.user.email) {
-    console.error(`❌ [sendCompletedResultsNotification] Missing user.email`);
+  // Check required fields
+  if (!order || !order.user || !order.user.email) {
+    console.error('Missing required email information:', {
+      hasOrder: !!order,
+      hasUser: order ? !!order.user : false,
+      hasEmail: order && order.user ? !!order.user.email : false
+    });
     return false;
   }
   
-  if (!order.TrackingNumber) {
-    console.error(`❌ [sendCompletedResultsNotification] Missing TrackingNumber`);
-    return false;
-  }
+  // เพิ่ม logging ที่ละเอียดมากขึ้น
+  console.log('Order information:', {
+    id: order._id,
+    tracking: order.TrackingNumber,
+    customerEmail: order.user.email
+  });
   
   try {
-    // สร้าง resultSummary
-    const resultSummary = {
-      total: results.length,
-      passed: results.filter(r => r.resultStatus === 'pass').length,
-      failed: results.filter(r => r.resultStatus === 'fail').length,
-      pending: results.filter(r => r.resultStatus === 'pending').length
-    };
+    // สร้าง URL ให้ถูกต้อง
+    const apiUrl = window.location.origin; // ✅ แก้ไขตรงนี้
+    const emailApiUrl = `${apiUrl}/api/email/results-completed`;
     
-    // เตรียมข้อมูลสำหรับส่งอีเมล
-    const emailPayload = {
-      trackingNumber: order.TrackingNumber,
-      customerEmail: order.user.email,
-      customerName: order.user.name || order.user.username,
-      totalPrice: order.TotalPrice,
-      orderId: order._id,
-      results: results,
-      resultSummary: resultSummary
-    };
+    console.log(`Calling API at: ${emailApiUrl}`);
     
-    console.log(`📧 [sendCompletedResultsNotification] Sending to ${emailPayload.customerEmail}`);
-    
-    // เรียกใช้ API Route
-    const response = await fetch('/api/email/results-completed', {
+    // เรียกใช้ API
+    const response = await fetch(emailApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(emailPayload),
+      body: JSON.stringify({
+        trackingNumber: order.TrackingNumber,
+        customerEmail: order.user.email,
+        customerName: order.user.name || order.user.username || 'ท่านผู้ใช้บริการ',
+        totalPrice: order.TotalPrice || 0,
+        orderId: order._id,
+        results: results,
+        resultSummary: {
+          total: results.length,
+          passed: results.filter(r => r.resultStatus === 'pass').length,
+          failed: results.filter(r => r.resultStatus === 'fail').length,
+          pending: results.filter(r => r.resultStatus === 'pending').length
+        }
+      }),
     });
     
-    console.log(`📧 [sendCompletedResultsNotification] API response status: ${response.status}`);
+    console.log(`API response status: ${response.status}`);
     
-    const result = await response.json();
+    // แก้ไขการจัดการ response
+    const result = await response.json().catch(e => {
+      console.error('Error parsing JSON response:', e);
+      return null;
+    });
     
-    if (!response.ok) {
-      console.error(`❌ [sendCompletedResultsNotification] API error:`, result);
-      return false;
-    }
+    console.log('API response data:', result);
     
-    console.log(`✅ [sendCompletedResultsNotification] Email sent successfully`);
-    return true;
+    return response.ok;
   } catch (error) {
-    console.error(`❌ [sendCompletedResultsNotification] Error:`, error);
+    console.error('Error sending email notification:', error);
     return false;
   }
 }

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit, Calendar, Users, Percent, BarChart3, TrendingUp, Tag, Filter, User, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Edit, Calendar, Users, Percent, BarChart3, TrendingUp, Tag, Filter, User, Clock, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { getAllCoupons, getAdminCouponOverview, createPublicCoupon, deleteCoupon } from '@/services/apiService';
 import useToast from '@/hooks/useToast'; // นำเข้า useToast
 
@@ -23,6 +23,8 @@ export default function AdminCouponManagement() {
   });
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState(null);
   const [newCoupon, setNewCoupon] = useState({
     code: '',
     discountPercent: '',
@@ -119,27 +121,40 @@ export default function AdminCouponManagement() {
     }
   };
 
-  const handleDeleteCoupon = async (id, code) => {
-    // ใช้ toast.info แทน confirm ด้วย options ที่กำหนดเอง
-    if (confirm(`คุณแน่ใจหรือไม่ที่จะลบคูปอง "${code}"?`)) {
-      try {
-        const loadingToastId = toast.loading(`กำลังลบคูปอง ${code}...`); // แสดง toast loading
-        
-        const response = await deleteCoupon(id);
-        
-        toast.dismiss(loadingToastId); // ปิด toast loading
-        
-        if (response.success) {
-          loadCoupons();
-          loadOverview();
-          toast.success(`ลบคูปอง ${code} สำเร็จ!`); // แสดง toast success
-        } else {
-          toast.error(response.message || 'เกิดข้อผิดพลาดในการลบคูปอง'); // แสดง toast error
-        }
-      } catch (error) {
-        console.error('Error deleting coupon:', error);
-        toast.error('เกิดข้อผิดพลาดในการลบคูปอง'); // แสดง toast error
+  // เปิด Modal ยืนยันการลบ
+  const openDeleteModal = (coupon) => {
+    setCouponToDelete(coupon);
+    setShowDeleteModal(true);
+  };
+
+  // ปิด Modal ยืนยันการลบ
+  const closeDeleteModal = () => {
+    setCouponToDelete(null);
+    setShowDeleteModal(false);
+  };
+
+  // ยืนยันการลบ
+  const confirmDeleteCoupon = async () => {
+    if (!couponToDelete) return;
+
+    try {
+      const loadingToastId = toast.loading(`กำลังลบคูปอง ${couponToDelete.code}...`);
+      
+      const response = await deleteCoupon(couponToDelete._id);
+      
+      toast.dismiss(loadingToastId);
+      
+      if (response.success) {
+        loadCoupons();
+        loadOverview();
+        closeDeleteModal();
+        toast.success(`ลบคูปอง ${couponToDelete.code} สำเร็จ!`);
+      } else {
+        toast.error(response.message || 'เกิดข้อผิดพลาดในการลบคูปอง');
       }
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
+      toast.error('เกิดข้อผิดพลาดในการลบคูปอง');
     }
   };
 
@@ -381,7 +396,7 @@ export default function AdminCouponManagement() {
                         <span>{status.text}</span>
                       </div>
                       <button
-                        onClick={() => handleDeleteCoupon(coupon._id, coupon.code)}
+                        onClick={() => openDeleteModal(coupon)}
                         className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors"
                         title="ลบคูปอง"
                       >
@@ -427,6 +442,69 @@ export default function AdminCouponManagement() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && couponToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="bg-red-100 w-12 h-12 rounded-full flex items-center justify-center mr-4">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">ยืนยันการลบคูปอง</h2>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-600 mb-4">
+                คุณแน่ใจหรือไม่ที่จะลบคูปองนี้? การดำเนินการนี้ไม่สามารถยกเลิกได้
+              </p>
+              
+              <div className="bg-gray-50 rounded-xl p-4">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="bg-gradient-to-r from-[#444DDA] to-[#5B63E8] text-white px-3 py-1 rounded-full font-bold text-sm">
+                    {couponToDelete.code}
+                  </div>
+                  <div className="bg-[#FFC107] text-gray-900 px-2 py-1 rounded-full text-sm font-semibold">
+                    -{couponToDelete.discountPercent}%
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  หมดอายุ: {new Date(couponToDelete.expiryDate).toLocaleDateString('th-TH')}
+                </p>
+                {couponToDelete.description && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    {couponToDelete.description}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={closeDeleteModal}
+                className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={confirmDeleteCoupon}
+                className="flex-1 bg-red-500 text-white py-3 rounded-xl font-medium hover:bg-red-600 transition-colors flex items-center justify-center"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                ลบคูปอง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Modal - Updated */}
       {showCreateModal && (

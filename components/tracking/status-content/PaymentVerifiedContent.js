@@ -41,23 +41,20 @@ const PaymentVerifiedContent = ({ order }) => {
     : '05/02/2025';
   
   // ฟังก์ชันสำหรับหา candidates ที่ใช้ service แต่ละตัว
-  const getCandidatesForService = (service, serviceIndex) => {
-    if (!candidates || candidates.length === 0) return [];
+const getCandidatesForService = (service, _serviceIndex) => {
+  if (!candidates || candidates.length === 0) return [];
+  
+  // กรองผู้สมัครที่ใช้บริการนี้
+  return candidates.filter(c => {
+    if (!c.services || !Array.isArray(c.services)) return false;
     
-    if (serviceIndex === 0) {
-      // Service แรก - สมมติว่าคนแรกใช้
-      return candidates.length > 0 ? [candidates[0]] : [];
-    } else if (serviceIndex === 1) {
-      // Service ที่สอง - สมมติว่าคนแรกใช้
-      return candidates.length > 0 ? [candidates[0]] : [];
-    } else if (serviceIndex === 2) {
-      // Service ที่สาม - สมมติว่าทุกคนใช้
-      return candidates;
-    } else {
-      // Service อื่นๆ - สมมติว่ามีคนใช้สลับกันไป
-      return candidates.filter((_, idx) => idx % (serviceIndex + 1) === 0);
-    }
-  };
+    // ตรวจสอบทั้งรูปแบบที่ services เป็น array ของ string และ array ของ object
+    return c.services.some(s => 
+      (typeof s === 'string' && s === service._id) || 
+      (typeof s === 'object' && (s.id === service._id || s.id === service.service))
+    );
+  });
+};
   
   // ฟังก์ชันสำหรับดำเนินการใส่ข้อมูลต่อ
   const handleContinueInputData = () => {

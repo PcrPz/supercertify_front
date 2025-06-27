@@ -272,6 +272,8 @@ export async function createOrder(orderData) {
  * @param {string} orderId รหัสคำสั่งซื้อ
  * @returns {Promise<Object>} ข้อมูลคำสั่งซื้อ
  */
+// ✅ แก้ไข getOrderById function ใน services/apiService.js
+
 export async function getOrderById(orderId) {
   try {
     const token = Cookies.get('access_token');
@@ -331,8 +333,13 @@ export async function getOrderById(orderId) {
             };
           });
           
+          // ✅ แก้ไขตรงนี้ - เพิ่มการสร้าง name field
           return {
             ...candidate,
+            // ✅ เพิ่มบรรทัดนี้เพื่อสร้าง name field
+            name: candidate.C_FirstName && candidate.C_LastName 
+              ? `${candidate.C_FirstName} ${candidate.C_LastName}`.trim()
+              : candidate.C_FullName || 'ไม่ระบุชื่อ',
             services: servicesWithStatus
           };
         } catch (error) {
@@ -340,6 +347,10 @@ export async function getOrderById(orderId) {
           // If there's an error, return the candidate with basic service info
           return {
             ...candidate,
+            // ✅ เพิ่มบรรทัดนี้ในกรณี error ด้วย
+            name: candidate.C_FirstName && candidate.C_LastName 
+              ? `${candidate.C_FirstName} ${candidate.C_LastName}`.trim()
+              : candidate.C_FullName || 'ไม่ระบุชื่อ',
             services: candidate.services.map(serviceId => ({
               id: serviceId,
               name: serviceMap[serviceId]?.Service_Title || `บริการ #${serviceId}`,
@@ -779,109 +790,159 @@ export async function uploadResultFile(candidateId, formData, orderId = null) {
 }
 
 /**
- * ตรวจสอบว่าคำสั่งซื้อมีการอัปโหลดผลการตรวจสอบครบทุกคนหรือยัง
+ * ตรวจสอบว่าคำสั่งซื้อมีการอัปโหลดผลลัพธ์ครบทุกคนหรือยัง
  * ถ้าครบแล้วจะอัปเดตสถานะคำสั่งซื้อและส่งอีเมลแจ้งเตือนไปยังลูกค้า
  * @param {string} orderId รหัสคำสั่งซื้อ
  * @returns {Promise<boolean>} ผลการตรวจสอบ
  */
 export async function checkAndNotifyIfAllResultsUploaded(orderId) {
-  console.log(`📋 Checking results for order ${orderId}`);
-  
   try {
-    // 1. ดึงข้อมูลคำสั่งซื้อล่าสุดพร้อมกับข้อมูล candidates
-    console.log(`🔍 Fetching order data for ${orderId}`);
+    // 1. ดึงข้อมูล order พื้นฐาน
     const order = await getOrderById(orderId);
     
-    if (!order) {
-      console.error(`❌ Order ${orderId} not found`);
+    if (!order || !order.candidates || order.candidates.length === 0) {
       return false;
     }
     
-    if (!order.candidates || order.candidates.length === 0) {
-      console.log(`⚠️ No candidates found for order ${orderId}`);
-      return false;
-    }
-    
-    console.log(`ℹ️ Order ${orderId} has ${order.candidates.length} candidates`);
-    
-    // 2. ตรวจสอบว่ามีผลการตรวจสอบสำหรับทุกคนหรือไม่
     const totalCandidates = order.candidates.length;
-    const candidatesWithResults = order.candidates.filter(c => c.result !== null);
-    const completedResults = candidatesWithResults.length;
     
-    console.log(`ℹ️ Order ${orderId}: ${completedResults}/${totalCandidates} candidates have results`);
+    // 2. ตรวจสอบผลการตรวจสอบของแต่ละ candidate
+    let completedCandidates = 0;
+    const candidateResults = [];
     
-    // แสดงสถานะของแต่ละ candidate
-    order.candidates.forEach((c, index) => {
-      console.log(`ℹ️ Candidate #${index+1}: ${c.C_FullName} - Result: ${c.result ? 'YES' : 'NO'}`);
-    });
-    
-    // 3. ตรวจสอบว่ายังอัปโหลดไม่ครบ
-    if (completedResults < totalCandidates) {
-      console.log(`⏳ Still need ${totalCandidates - completedResults} more results for order ${orderId}`);
-      return false;
-    }
-    
-    // 4. ถ้าครบทุกคนแล้ว
-    console.log(`✅ All ${totalCandidates} candidates have results for order ${orderId}`);
-    
-    // 5. แปลงข้อมูลผลการตรวจสอบให้อยู่ในรูปแบบที่เหมาะกับการส่งอีเมล
-    const results = order.candidates.map(candidate => ({
-      candidateName: candidate.C_FullName,
-      candidateEmail: candidate.C_Email,
-      resultStatus: candidate.result ? candidate.result.resultStatus : 'unknown',
-      resultNotes: candidate.result ? candidate.result.resultNotes : '',
-      resultDate: candidate.result ? candidate.result.createdAt : new Date()
-    }));
-    
-    console.log(`📊 Prepared result data for ${results.length} candidates`);
-    
-    // 6. อัปเดตสถานะคำสั่งซื้อเป็น 'completed' ถ้ายังไม่ได้อัปเดต
-    if (order.OrderStatus !== 'completed') {
-      console.log(`📝 Updating order status to 'completed' for order ${orderId}`);
-      try {
-        const updateResult = await updateOrderStatus(orderId, 'completed');
-        console.log(`✅ Order status updated:`, updateResult);
-      } catch (updateError) {
-        console.error(`❌ Error updating order status:`, updateError);
-        // ทำงานต่อไปแม้จะอัพเดตสถานะไม่สำเร็จ
+    for (const candidate of order.candidates) {
+      // สำคัญที่สุด: ต้องมี summaryResult
+      const hasSummaryResult = candidate.summaryResult && 
+                              candidate.summaryResult.resultFile && 
+                              candidate.summaryResult.resultFile.trim() !== '';
+      
+      // ถือว่าเสร็จแล้วถ้ามี summaryResult
+      const isCompleted = hasSummaryResult;
+      
+      if (isCompleted) {
+        completedCandidates++;
+        
+        // เตรียมข้อมูลสำหรับส่งอีเมล
+        let resultData = {
+          candidateName: candidate.name || candidate.C_FullName,
+          candidateEmail: candidate.C_Email,
+          resultStatus: 'pass',
+          resultNotes: '',
+          resultDate: new Date(),
+          serviceResults: []
+        };
+        
+        // ใช้ข้อมูลจาก summaryResult
+        if (hasSummaryResult) {
+          resultData.resultStatus = candidate.summaryResult.overallStatus || 'pass';
+          resultData.resultNotes = candidate.summaryResult.notes || '';
+          resultData.resultDate = candidate.summaryResult.addedAt || new Date();
+        }
+        
+        // รวบรวมข้อมูล serviceResults
+        if (candidate.serviceResults && candidate.serviceResults.length > 0) {
+          resultData.serviceResults = candidate.serviceResults
+            .filter(sr => sr && sr.resultFile)
+            .map(sr => ({
+              serviceName: sr.serviceName || 'Unknown Service',
+              status: sr.resultStatus || 'pass',
+              fileName: sr.fileName || 'result.pdf'
+            }));
+        }
+        
+        candidateResults.push(resultData);
       }
-    } else {
-      console.log(`ℹ️ Order ${orderId} already has 'completed' status`);
     }
     
-    // 7. ส่งอีเมลแจ้งเตือนไปยังลูกค้า
-    console.log(`📧 Sending email notification for order ${orderId}`);
-    
-    // ตรวจสอบข้อมูลที่จำเป็นก่อนส่งอีเมล
-    if (!order.user || !order.user.email) {
-      console.error(`❌ Customer email not found in order ${orderId}`);
+    // 3. ตรวจสอบว่าเสร็จสมบูรณ์หรือไม่
+    if (completedCandidates < totalCandidates) {
       return false;
+    }
+    
+    // 4. อัปเดตสถานะคำสั่งซื้อ
+    if (order.OrderStatus !== 'completed') {
+      try {
+        await updateOrderStatus(orderId, 'completed');
+      } catch (updateError) {
+        console.error('Failed to update order status:', updateError);
+        // ทำงานต่อไปแม้อัปเดตสถานะไม่สำเร็จ
+      }
+    }
+    
+    // 5. ส่งอีเมลแจ้งเตือน
+    if (!order.user || !order.user.email) {
+      return true; // ถือว่าสำเร็จแล้วแต่ไม่ส่งอีเมล
     }
     
     try {
-      const emailResult = await sendCompletedResultsNotification(order, results);
-      console.log(`📧 Email notification result:`, emailResult);
+      // สร้างข้อมูลสรุป
+      const resultSummary = {
+        total: candidateResults.length,
+        passed: candidateResults.filter(r => r.resultStatus === 'pass').length,
+        failed: candidateResults.filter(r => r.resultStatus === 'fail').length,
+        pending: candidateResults.filter(r => r.resultStatus === 'pending').length
+      };
       
-      if (emailResult) {
-        console.log(`✅ Email notification sent successfully`);
-      } else {
-        console.error(`❌ Failed to send email notification`);
-      }
+      // ส่งอีเมล
+      return await sendCompletedResultsNotification(order, candidateResults);
     } catch (emailError) {
-      console.error(`❌ Error sending email notification:`, emailError);
+      console.error('Error sending email:', emailError);
+      return false;
     }
-    
-    return true;
   } catch (error) {
-    console.error(`❌ Error checking order completion for ${orderId}:`, error);
+    console.error('Unexpected error:', error);
     return false;
   }
 }
 
+/**
+ * ดูสถานะรายละเอียดของ Order (ใหม่)
+ * @param {string} orderId รหัสคำสั่งซื้อ
+ * @returns {Promise<Object>} ข้อมูลสถานะรายละเอียด
+ */
+export async function getOrderDetailedStatus(orderId) {
+  try {
+    const result = await apiCall('get', `/api/orders/${orderId}/detailed-status`);
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    console.error('Error fetching order detailed status:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถดึงข้อมูลสถานะรายละเอียดได้',
+      error
+    };
+  }
+}
 
-
-
+export async function getOrderWithDetails(orderId) {
+  try {
+    // ดึงข้อมูลพื้นฐาน
+    const basicData = await getOrderById(orderId);
+    
+    try {
+      // ลองดึงข้อมูลเพิ่มเติม
+      const detailedData = await getOrderDetailedStatus(orderId);
+      
+      // รวมข้อมูลทั้งสองส่วน
+      return {
+        ...basicData,
+        orderCompletion: detailedData.orderCompletion,
+        candidatesWithResults: detailedData.candidateDetails
+      };
+    } catch (error) {
+      // ถ้าดึงข้อมูลเพิ่มเติมไม่ได้ ให้ใช้แค่ข้อมูลพื้นฐาน
+      console.warn('Could not fetch detailed status, using basic data only');
+      return basicData;
+    }
+  } catch (error) {
+    console.error('Error fetching order data:', error);
+    throw error;
+  }
+}
 /**
  * อัปเดตสถานะของคำสั่งซื้อ
  * @param {string} orderId รหัสคำสั่งซื้อ
@@ -1462,16 +1523,18 @@ export async function getDocumentsByCandidate(candidateId) {
     const candidate = await apiCall('get', `/api/candidates/${candidateId}`);
     
     // จัดรูปแบบข้อมูลให้ตรงกับที่คอมโพเนนต์ต้องการ
-    return {
-      candidate: {
-        _id: candidate._id,
-        name: candidate.C_FullName,
-        email: candidate.C_Email,
-        company: candidate.C_Company_Name
-      },
-      serviceDocuments: uploadedDocs.serviceDocuments || [],
-      missingDocuments: missingDocs.missingDocuments || []
-    };
+      return {
+        candidate: {
+          _id: candidate._id,
+          name: candidate.C_FirstName && candidate.C_LastName 
+            ? `${candidate.C_FirstName} ${candidate.C_LastName}`.trim()  // ✅ รวมชื่อ-นามสกุล
+            : candidate.C_FullName || 'ไม่ระบุชื่อ',  // ✅ fallback สำหรับข้อมูลเก่า
+          email: candidate.C_Email,
+          company: candidate.C_Company_Name
+        },
+        serviceDocuments: uploadedDocs.serviceDocuments || [],
+        missingDocuments: missingDocs.missingDocuments || []
+      };
   } catch (error) {
     console.error('Error fetching candidate documents:', error);
     throw error;
@@ -1533,5 +1596,257 @@ export async function getUserOrders(userId) {
   } catch (error) {
     console.error('Error fetching user orders:', error);
     throw error;
+  }
+}
+/**
+ * อัปโหลดผลลัพธ์แยกตาม Service (ใหม่)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @param {string} serviceId รหัสบริการ
+ * @param {FormData} formData ข้อมูลผลการตรวจสอบพร้อมไฟล์
+ * @returns {Promise<Object>} ผลลัพธ์การอัปโหลด
+ */
+export async function uploadServiceResult(candidateId, serviceId, formData) {
+  try {
+    const result = await apiCall('post', `/api/candidates/${candidateId}/service/${serviceId}/upload-result`, formData, true);
+    
+    return {
+      success: true,
+      message: 'อัปโหลดผลการตรวจสอบสำเร็จ',
+      data: result
+    };
+  } catch (error) {
+    console.error('Error uploading service result:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปโหลดผลการตรวจสอบ',
+      error
+    };
+  }
+}
+
+/**
+ * อัปโหลดผลลัพธ์สรุป (ใหม่)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @param {FormData} formData ข้อมูลผลการตรวจสอบรวมพร้อมไฟล์
+ * @param {string} orderId รหัสคำสั่งซื้อ (เพิ่มพารามิเตอร์นี้)
+ * @returns {Promise<Object>} ผลลัพธ์การอัปโหลด
+ */
+export async function uploadSummaryResult(candidateId, formData, orderId = null) {
+  try {
+    const result = await apiCall('post', `/api/candidates/${candidateId}/upload-summary`, formData, true);
+    
+    // เพิ่มส่วนนี้: เรียกใช้ฟังก์ชันตรวจสอบและส่งอีเมลหลังจากอัปโหลดสำเร็จ
+    if (orderId) {
+      try {
+        await checkAndNotifyIfAllResultsUploaded(orderId);
+      } catch (emailError) {
+        console.error('Error checking/sending email notification:', emailError);
+        // ไม่ throw error เพราะอีเมลไม่ใช่ critical operation
+      }
+    }
+    
+    return {
+      success: true,
+      message: 'อัปโหลดผลการตรวจสอบรวมสำเร็จ',
+      data: result
+    };
+  } catch (error) {
+    console.error('Error uploading summary result:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการอัปโหลดผลการตรวจสอบรวม',
+      error
+    };
+  }
+}
+
+/**
+ * ดูผลลัพธ์ทั้งหมดของ Candidate (ใหม่)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @returns {Promise<Object>} ข้อมูลผลลัพธ์ทั้งหมด
+ */
+export async function getCandidateResults(candidateId) {
+  try {
+    const result = await apiCall('get', `/api/candidates/${candidateId}/results`);
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    console.error('Error fetching candidate results:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถดึงข้อมูลผลลัพธ์ได้',
+      error
+    };
+  }
+}
+
+/**
+ * ดูผลลัพธ์ของ Service เฉพาะ (ใหม่)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @param {string} serviceId รหัสบริการ
+ * @returns {Promise<Object>} ข้อมูลผลลัพธ์ของ Service
+ */
+// แก้ไขการใช้งาน getServiceResult ใน apiService.js
+export async function getServiceResult(candidateId, serviceId) {
+  try {
+    console.log(`Fetching service result for candidate: ${candidateId}, service: ${serviceId}`);
+    const result = await apiCall('get', `/api/candidates/${candidateId}/service/${serviceId}/result`);
+    console.log('Result:', result);
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    // จัดการ error แล้วคืนค่า success: false
+    console.warn(`Error fetching service result (may be normal if no result exists): ${error.message}`);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่พบผลลัพธ์',
+      error
+    };
+  }
+}
+
+/**
+ * ลบผลลัพธ์ของ Service เฉพาะ (ใหม่)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @param {string} serviceId รหัสบริการ
+ * @returns {Promise<Object>} ผลลัพธ์การลบ
+ */
+export async function deleteServiceResult(candidateId, serviceId) {
+  try {
+    const result = await apiCall('delete', `/api/candidates/${candidateId}/service/${serviceId}/result`);
+    
+    return {
+      success: true,
+      message: 'ลบผลลัพธ์สำเร็จ',
+      data: result
+    };
+  } catch (error) {
+    console.error('Error deleting service result:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถลบผลลัพธ์ได้',
+      error
+    };
+  }
+}
+
+/**
+ * ลบผลลัพธ์สรุป (ใหม่)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @returns {Promise<Object>} ผลลัพธ์การลบ
+ */
+export async function deleteSummaryResult(candidateId) {
+  try {
+    const result = await apiCall('delete', `/api/candidates/${candidateId}/summary-result`);
+    
+    return {
+      success: true,
+      message: 'ลบผลลัพธ์สรุปสำเร็จ',
+      data: result
+    };
+  } catch (error) {
+    console.error('Error deleting summary result:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถลบผลลัพธ์สรุปได้',
+      error
+    };
+  }
+}
+
+/**
+ * ดาวน์โหลดไฟล์ผลลัพธ์ของ Service (ใหม่)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @param {string} serviceId รหัสบริการ
+ * @returns {Promise<Object>} ข้อมูลการดาวน์โหลด
+ */
+export async function downloadServiceResult(candidateId, serviceId) {
+  try {
+    const result = await apiCall('get', `/api/candidates/${candidateId}/service/${serviceId}/download`);
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    console.error('Error getting download link:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถดาวน์โหลดไฟล์ได้',
+      error
+    };
+  }
+}
+
+/**
+ * ดาวน์โหลดไฟล์ผลลัพธ์สรุป (ใหม่)
+ * @param {string} candidateId รหัสผู้สมัคร
+ * @returns {Promise<Object>} ข้อมูลการดาวน์โหลด
+ */
+export async function downloadSummaryResult(candidateId) {
+  try {
+    const result = await apiCall('get', `/api/candidates/${candidateId}/download-summary`);
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    console.error('Error getting summary download link:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถดาวน์โหลดไฟล์สรุปได้',
+      error
+    };
+  }
+}
+
+
+/**
+ * ดูสถิติการเสร็จสิ้นของ Orders (Admin) (ใหม่)
+ * @returns {Promise<Object>} ข้อมูลสถิติ
+ */
+export async function getOrderCompletionStats() {
+  try {
+    const result = await apiCall('get', '/api/orders/completion-stats');
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    console.error('Error fetching order completion stats:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถดึงข้อมูลสถิติได้',
+      error
+    };
+  }
+}
+
+/**
+ * ดูสถานะรายละเอียดของ Orders ทั้งหมด (Admin) (ใหม่)
+ * @returns {Promise<Object>} ข้อมูลสถานะของ Orders ทั้งหมด
+ */
+export async function getOrdersWithDetailedResults() {
+  try {
+    const result = await apiCall('get', '/api/orders/detailed-results-status');
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    console.error('Error fetching orders with detailed results:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'ไม่สามารถดึงข้อมูลสถานะรายละเอียดได้',
+      error
+    };
   }
 }

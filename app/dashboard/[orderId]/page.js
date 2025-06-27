@@ -16,6 +16,7 @@ import {
   BuildingOfficeIcon,
   DocumentDuplicateIcon
 } from '@heroicons/react/24/outline';
+import { getOrderWithDetails } from '../../../services/apiService';
 import { getOrderById } from '../../../services/apiService';
 import TrackingSteps from '@/components/tracking/TrackingSteps';
 import AwaitingPaymentContent from '@/components/tracking/status-content/AwaitingPaymentContent';
@@ -35,21 +36,21 @@ export default function OrderDetailPage() {
 
   // โหลดข้อมูล Order จาก API
   useEffect(() => {
-    const fetchOrderDetail = async () => {
-      try {
-        setLoading(true);
-        // ใช้ getOrderById เพื่อดึงข้อมูลรายละเอียดของ Order
-        const response = await getOrderById(orderId);
-        
-        // กำหนดข้อมูล Order ที่ได้รับมา
-        setOrder(response);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching order detail:', err);
-        setError('ไม่สามารถโหลดข้อมูลรายละเอียดคำสั่งซื้อได้ กรุณาลองใหม่อีกครั้ง');
-        setLoading(false);
-      }
-    };
+  const fetchOrderDetail = async () => {
+    try {
+      setLoading(true);
+      // เปลี่ยนจาก getOrderById เป็น getOrderWithDetails
+      const response = await getOrderWithDetails(orderId);
+      
+      // กำหนดข้อมูล Order ที่ได้รับมา
+      setOrder(response);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching order detail:', err);
+      setError('ไม่สามารถโหลดข้อมูลรายละเอียดคำสั่งซื้อได้ กรุณาลองใหม่อีกครั้ง');
+      setLoading(false);
+    }
+  };
 
     if (orderId) {
       fetchOrderDetail();

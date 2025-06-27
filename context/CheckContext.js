@@ -1,23 +1,24 @@
 'use client'
 import { createContext, useContext, useState } from 'react';
 
-// สร้าง context สำหรับเก็บข้อมูลทั้งหมดของการตรวจสอบ
 const CheckContext = createContext();
 
 export function CheckProvider({ children }) {
-  // โหมดที่เลือกจากหน้า 1 (บริษัท หรือ ส่วนตัว)
-  const [checkMode, setCheckMode] = useState('company'); // 'company' หรือ 'personal'
-  
-  // ตะกร้าสินค้า - เก็บบริการที่ผู้ใช้เลือก
+  const [checkMode, setCheckMode] = useState('company');
   const [cart, setCart] = useState([]);
-  
-  // เพิ่ม state สำหรับคูปอง
   const [coupon, setCoupon] = useState(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
   
-  // ข้อมูลผู้สมัคร (สำหรับหน้า 5)
+  // ✅ เปลี่ยน applicants structure
   const [applicants, setApplicants] = useState([
-    { id: 1, name: '', company: '', email: '', services: [] }
+    { 
+      id: 1, 
+      firstName: '',  // ✅ เพิ่มฟิลด์ใหม่
+      lastName: '',   // ✅ เพิ่มฟิลด์ใหม่
+      company: '', 
+      email: '', 
+      services: [] 
+    }
   ]);
   
   // เพิ่มบริการลงในตะกร้า
@@ -263,8 +264,7 @@ const getAfterPromotionPrice = () => {
   return subtotal - promotionDiscount;
 };
   // เพิ่มผู้สมัคร
-  const addApplicant = () => {
-    // ถ้าเป็นโหมด personal และมีผู้สมัครอยู่แล้ว 1 คน ไม่อนุญาตให้เพิ่ม
+   const addApplicant = () => {
     if (checkMode === 'personal' && applicants.length >= 1) {
       alert('โหมดส่วนตัวสามารถเพิ่มผู้สมัครได้เพียง 1 คนเท่านั้น');
       return;
@@ -274,7 +274,14 @@ const getAfterPromotionPrice = () => {
       ? Math.max(...applicants.map(a => a.id)) + 1 
       : 1;
     
-    setApplicants([...applicants, { id: newId, name: '', company: '', email: '', services: [] }]);
+    setApplicants([...applicants, { 
+      id: newId, 
+      firstName: '',  // ✅ เพิ่มฟิลด์ใหม่
+      lastName: '',   // ✅ เพิ่มฟิลด์ใหม่
+      company: '', 
+      email: '', 
+      services: [] 
+    }]);
   };
   
   // อัปเดตข้อมูลผู้สมัคร
@@ -475,8 +482,15 @@ const checkCouponCode = async () => {
   const resetState = () => {
     setCheckMode('company');
     setCart([]);
-    setApplicants([{ id: 1, name: '', company: '', email: '', services: [] }]);
-    resetCoupon(); // รีเซ็ตข้อมูลคูปองด้วย
+    setApplicants([{ 
+      id: 1, 
+      firstName: '',  // ✅ เพิ่มฟิลด์ใหม่
+      lastName: '',   // ✅ เพิ่มฟิลด์ใหม่
+      company: '', 
+      email: '', 
+      services: [] 
+    }]);
+    resetCoupon();
   };
 
   // ค่าที่จะส่งไปให้ component ที่ใช้ context นี้

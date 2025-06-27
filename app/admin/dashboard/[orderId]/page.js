@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  getOrderById, 
+  getOrderWithDetails, // เปลี่ยนจาก getOrd
   updateOrderStatus, 
   updatePaymentStatus, 
   getDocumentsByCandidate 
@@ -13,7 +13,7 @@ import {
   sendPaymentApprovedToUser, 
   sendPaymentRejectedToUser 
 } from '@/services/emailService';
-import useToast from '@/hooks/useToast'; // เพิ่ม import useToast
+import useToast from '@/hooks/useToast';
 import { 
   CheckCircleIcon, 
   ClockIcon, 
@@ -46,7 +46,8 @@ export default function AdminOrderDetailPage() {
     async function fetchOrderDetails() {
       try {
         setLoading(true);
-        const orderData = await getOrderById(orderId);
+        // เปลี่ยนจาก getOrderById เป็น getOrderWithDetails
+        const orderData = await getOrderWithDetails(orderId);
         setOrder(orderData);
         setError(null);
       } catch (err) {
@@ -303,7 +304,7 @@ const handleUpdatePaymentStatus = async (orderId, newStatus) => {
         await updateOrderStatus(orderId, 'payment_verified');
         
         // ดึงข้อมูล order ล่าสุด
-        const updatedOrder = await getOrderById(orderId);
+        const updatedOrder = await getOrderWithDetails(orderId);
         
         // ส่งอีเมลแจ้งเตือนลูกค้า (ถ้ามีฟังก์ชันนี้)
         if (typeof sendPaymentApprovedToUser === 'function') {
@@ -318,7 +319,7 @@ const handleUpdatePaymentStatus = async (orderId, newStatus) => {
       
       // ดึงข้อมูล order ล่าสุด
       console.log('Fetching updated order data...');
-      const updatedOrder = await getOrderById(orderId);
+    const updatedOrder = await getOrderWithDetails(orderId);
       console.log('Updated order data fetched:', updatedOrder);
       
       // ส่งอีเมลแจ้งเตือนลูกค้า
@@ -943,152 +944,389 @@ const ProcessingContent = ({ order, candidates, expandedCandidate, setExpandedCa
   );
 };
   
-  // คอมโพเนนต์แสดงสถานะเสร็จสิ้น
-  const CompletedContent = ({ order, candidates }) => {
-    // State สำหรับแสดง/ซ่อนรายงาน
-    const [expandedCandidate, setExpandedCandidate] = useState(null);
+// คอมโพเนนต์แสดงสถานะเสร็จสิ้น - แก้ไขให้คล้าย User
+const CompletedContent = ({ order, candidates }) => {
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
-    const toggleExpand = (candidateId) => {
-      if (expandedCandidate === candidateId) {
-        setExpandedCandidate(null);
-      } else {
-        setExpandedCandidate(candidateId);
-      }
-    };
+  const handleDownload = (fileUrl) => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+    }
+  };
+
+  // นับจำนวนบริการที่เสร็จแล้วและรวมของแต่ละคน
+  function getCandidateProgress(candidate) {
+    if (!candidate.services || !candidate.serviceResults) {
+      return { completed: candidate.services ? candidate.services.length : 0, total: candidate.services ? candidate.services.length : 0 };
+    }
     
-    return (
-      <div className="mt-6 space-y-6">
-        {/* Header - แบนเนอร์สีขาว */}
-        <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-          <div className="flex items-center">
-            <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-              <CheckCircleIcon className="h-6 w-6 text-green-500" />
-            </div>
+    const total = candidate.services.length;
+    const completed = candidate.serviceResults.length;
+    return { completed, total };
+  }
+
+  const services = order.services || [];
+
+  return (
+    <div className="p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-[40px] border border-gray-200 overflow-hidden p-8">
+          {/* ข้อมูลบริษัทและข้อมูลการชำระเงิน */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-10">
+            {/* ข้อมูลบริษัท */}
             <div>
-              <h3 className="text-lg font-medium text-gray-800">การตรวจสอบเสร็จสิ้นแล้ว</h3>
-              <p className="text-sm text-gray-600">
-                ผลการตรวจสอบประวัติของผู้สมัครทั้งหมดพร้อมให้ดาวน์โหลดแล้ว
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        {/* ส่วนหัวตาราง */}
-        <div className="bg-white rounded-t-xl shadow-sm overflow-hidden">
-          <div className="grid grid-cols-7 py-4 px-6 border-b border-gray-200 font-medium text-gray-600">
-            <div className="col-span-1 text-center">#</div>
-            <div className="col-span-1">ชื่อเต็ม</div>
-            <div className="col-span-1">ชื่อบริษัท</div>
-            <div className="col-span-1">อีเมล</div>
-            <div className="col-span-1">การตรวจสอบประวัติ</div>
-            <div className="col-span-1">ข้อมูล</div>
-            <div className="col-span-1">รายงานผลลัพธ์</div>
-          </div>
-        </div>
-        
-        {/* แถวข้อมูล */}
-        {candidates.map((candidate, index) => (
-          <div key={candidate._id || index} className="mb-4">
-            {/* แถวหลัก */}
-            <div className="bg-white rounded-xl shadow-sm">
-              <div className="grid grid-cols-7 py-5 px-6 items-center">
-                <div className="col-span-1 text-center text-gray-700">{index + 1}</div>
-                <div className="col-span-1 font-medium text-gray-800">{candidate.C_FullName}</div>
-                <div className="col-span-1 text-gray-700">{candidate.C_Company_Name || '-'}</div>
-                <div className="col-span-1 text-gray-700">{candidate.C_Email}</div>
-                <div className="col-span-1">
-                  {candidate.services && candidate.services.map((service, sIndex) => (
-                    <span key={sIndex} className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-xs mr-1 mb-1">
-                      {service.name}
-                    </span>
-                  ))}
+              <h3 className="text-xl font-semibold text-gray-800 mb-6">ข้อมูลบริษัท</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-gray-500 text-sm">ชื่อเต็ม</p>
+                  <p className="font-medium">{order.user?.username}</p>
                 </div>
-                <div className="col-span-1">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                    candidate.result?.resultStatus === 'pass' ? 'text-green-600' : 
-                    candidate.result?.resultStatus === 'fail' ? 'text-red-600' : 
-                    'text-amber-600'
-                  }`}>
-                    • {getResultLabel(candidate.result?.resultStatus)}
-                  </span>
+                <div>
+                  <p className="text-gray-500 text-sm">ชื่อบริษัท</p>
+                  <p className="font-medium">{order.user?.companyName}</p>
                 </div>
-                <div className="col-span-1 flex justify-between items-center">
-                  <button 
-                    onClick={() => toggleExpand(candidate._id)}
-                    className="px-5 py-2 bg-[#FFC107] text-white rounded-full text-sm font-medium hover:bg-[#F5B800] transition"
-                  >
-                    ดู
-                  </button>
-                  <button 
-                    onClick={() => toggleExpand(candidate._id)}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-transform ${expandedCandidate === candidate._id ? 'rotate-180' : ''}`}
-                  >
-                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
+                <div>
+                  <p className="text-gray-500 text-sm">ที่อยู่อีเมล</p>
+                  <p className="font-medium">{order.user?.email}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">หมายเลขโทรศัพท์</p>
+                  <p className="font-medium">{order.user?.phoneNumber}</p>
                 </div>
               </div>
             </div>
             
-            {/* ส่วนขยาย */}
-            {expandedCandidate === candidate._id && (
-              <div className="bg-white rounded-xl shadow-sm mt-3 p-6 border border-gray-100">
-                <h4 className="text-sm font-medium text-gray-700 mb-4">รายงานผลลัพธ์</h4>
-                
-                {candidate.result && candidate.result.resultFile ? (
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                  <div className="flex items-center">
-                    <div className="h-14 w-14 bg-yellow-50 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M7 18H17V16H7V18Z" fill="#F59E0B"/>
-                        <path d="M17 14H7V12H17V14Z" fill="#F59E0B"/>
-                        <path d="M7 10H11V8H7V10Z" fill="#F59E0B"/>
-                        <path fillRule="evenodd" clipRule="evenodd" d="M6 2C4.34315 2 3 3.34315 3 5V19C3 20.6569 4.34315 22 6 22H18C19.6569 22 21 20.6569 21 19V9C21 5.13401 17.866 2 14 2H6ZM5 5C5 4.44772 5.44772 4 6 4H13V8C13 9.10457 13.8954 10 15 10H19V19C19 19.5523 18.5523 20 18 20H6C5.44772 20 5 19.5523 5 19V5ZM15 8H19L15 4V8Z" fill="#F59E0B"/>
-                      </svg>
+            {/* ข้อมูลการชำระเงิน */}
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-6">ข้อมูลการชำระเงิน</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-gray-500 text-sm">รหัสการชำระเงิน</p>
+                  <p className="font-medium">{order.payment?.Payment_ID}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">วิธีการชำระเงิน</p>
+                  <p className="font-medium">{order.payment?.paymentMethod === "qr_payment" ? "QR Payment" : order.payment?.paymentMethod}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">ราคารวม</p>
+                  <p className="font-medium">{order?.TotalPrice && `${order.TotalPrice.toLocaleString()} บาท`}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">สถานะ</p>
+                  <p className="font-medium">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      จ่ายเรียบร้อย
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* แสดงความคืบหน้า - เสร็จสมบูรณ์ 100% */}
+          <div className="mb-10 bg-[#F5F7FF] p-6 rounded-lg border border-[#E0E4FF]">
+            <h3 className="text-lg font-semibold text-[#444DDA] mb-4">ความคืบหน้าการตรวจสอบ</h3>
+            <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
+              <div className="bg-[#444DDA] h-4 rounded-full transition-all duration-500" style={{width: '100%'}}></div>
+            </div>
+            <p className="text-gray-600 text-sm">
+              การตรวจสอบเสร็จสมบูรณ์แล้ว (100%)
+            </p>
+          </div>
+
+          {/* รายการการตรวจสอบประวัติ */}
+          <div className="mb-10">
+            <h3 className="text-xl font-semibold text-gray-800 mb-6">รายการการตรวจสอบประวัติ</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-[#F5F7FF]">
+                    <th scope="col" className="px-6 py-3 text-left text-sm font-medium text-[#444DDA]">
+                      หมายเลข
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-sm font-medium text-[#444DDA]">
+                      ประเภทการตรวจสอบประวัติ
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-sm font-medium text-[#444DDA]">
+                      จำนวนคน
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-sm font-medium text-[#444DDA]">
+                      ผู้สมัคร
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {services.map((service, serviceIndex) => (
+                    <tr key={serviceIndex} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {serviceIndex + 1}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">
+                        {service.title || 'บริการตรวจสอบ'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {candidates.filter(c => c.services && Array.isArray(c.services) && c.services.includes(service._id)).length || candidates.length}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="flex flex-col space-y-2">
+                          {candidates.map((candidate, idx) => (
+                            <div key={idx}>
+                              {candidate.C_FullName}, {candidate.C_Email}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ผลการตรวจสอบของผู้สมัครแต่ละคน */}
+          <div className="mb-10">
+            <h3 className="text-xl font-semibold text-[#444DDA] mb-6 border-b-2 border-[#444DDA] pb-2">
+              ผลการตรวจสอบประวัติของผู้สมัคร
+            </h3>
+            
+            {candidates.map((candidate, index) => {
+              const progress = getCandidateProgress(candidate);
+              return (
+                <div key={index} className="mb-10 border-2 border-[#E0E4FF] rounded-xl overflow-hidden shadow-sm">
+                  {/* Header สำหรับแต่ละ candidate */}
+                  <div className="bg-[#444DDA] text-white p-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-lg font-medium flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        {candidate.C_FullName}
+                      </h4>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                          {candidate.C_Email}
+                        </span>
+                        <span className="text-xs bg-white/10 px-2 py-1 rounded-full">
+                          {progress.completed}/{progress.total} บริการ
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#FFC107] text-[#444DDA]">
+                          เสร็จสมบูรณ์
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0 pr-4">
-                      <p className="font-medium text-gray-800 truncate" title={candidate.result.fileName || `${candidate.C_FullName}_Report.pdf`}>
-                        {truncateFileName(candidate.result.fileName || `${candidate.C_FullName}_Report.pdf`, 40)}
+                    {candidate.C_Company_Name && (
+                      <p className="text-sm text-white/80 mt-1">
+                        บริษัท: {candidate.C_Company_Name}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        PDF • {candidate.result.fileSize ? `${Math.round(candidate.result.fileSize/1024)} KB` : '2.2 MB'}
-                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="p-6 bg-white">
+                    {/* ผลการตรวจสอบแต่ละบริการ */}
+                    <div className="mb-6">
+                      <h5 className="text-md font-medium text-[#444DDA] mb-4 border-l-4 border-[#444DDA] pl-3">
+                        ผลการตรวจสอบแต่ละบริการ
+                      </h5>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {candidate.services && candidate.services.map((service, serviceIndex) => {
+                          const serviceId = service.id || service;
+                          const serviceResult = candidate.serviceResults?.find(r => r.serviceId === serviceId);
+                          
+                          // หาชื่อบริการ (ใช้ลำดับที่ถูกต้อง)
+                          let serviceName = 'บริการตรวจสอบ';
+                          
+                          // วิธีที่ 1: จาก service.name (มีอยู่แล้วใน object)
+                          if (service.name) {
+                            serviceName = service.name;
+                          }
+                          // วิธีที่ 2: จาก serviceResult (ถ้ามีผลแล้ว)
+                          else if (serviceResult?.serviceName) {
+                            serviceName = serviceResult.serviceName;
+                          }
+                          // วิธีที่ 3: จาก services array ใน order
+                          else if (services?.length > 0) {
+                            const foundService = services.find(s => s._id === serviceId);
+                            if (foundService?.title) {
+                              serviceName = foundService.title;
+                            }
+                          }
+                          
+                          const status = serviceResult ? serviceResult.resultStatus : 'completed';
+                          
+                          return (
+                            <div key={serviceIndex} className="border border-gray-200 rounded-lg p-4 bg-[#F5F7FF] hover:shadow-md transition-shadow">
+                              <div className="flex justify-between items-center mb-3">
+                                <div className="flex items-center">
+                                  <div className="w-8 h-8 rounded-full bg-[#444DDA] flex items-center justify-center mr-3 text-white">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                  </div>
+                                  <h6 className="font-medium text-gray-800">
+                                    {serviceName}
+                                  </h6>
+                                </div>
+                                
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium 
+                                  ${status === 'pass' ? 'bg-green-100 text-green-800' : 
+                                    status === 'fail' ? 'bg-red-100 text-red-800' : 
+                                      'bg-[#FFC107] text-[#444DDA]'}`}>
+                                  {status === 'pass' ? 'ผ่าน' : 
+                                    status === 'fail' ? 'ไม่ผ่าน' : 'เสร็จสิ้น'}
+                                </span>
+                              </div>
+                              
+                              {serviceResult && serviceResult.resultFile && (
+                                <div className="mt-3 flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
+                                  <div className="flex items-center flex-1 min-w-0">
+                                    <div className="h-10 w-10 bg-[#FFC107]/20 rounded-lg flex items-center justify-center mr-3 text-[#FFC107]">
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                      </svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-sm truncate" title={serviceResult.resultFileName || 'ผลการตรวจสอบ.pdf'}>
+                                        {serviceResult.resultFileName || 'ผลการตรวจสอบ.pdf'}
+                                      </p>
+                                      {serviceResult.resultFileSize && (
+                                        <p className="text-xs text-gray-500">
+                                          {formatFileSize(serviceResult.resultFileSize)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <button
+                                    onClick={() => handleDownload(serviceResult.resultFile)}
+                                    className="ml-2 px-3 py-1.5 bg-[#FFC107] hover:bg-[#FFB000] text-[#444DDA] text-sm font-medium rounded transition-colors flex items-center"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    ดาวน์โหลด
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <a 
-                      href={candidate.result.resultFile}
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-[#FFC107] text-white rounded-lg text-sm hover:bg-[#F5B800] transition flex items-center flex-shrink-0"
-                    >
-                      <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                      ดาวน์โหลด
-                    </a>
+                    
+                    {/* ผลการตรวจสอบรวม */}
+                    {candidate.summaryResult ? (
+                      <div className="mt-6">
+                        <h5 className="text-md font-medium text-[#444DDA] mb-4 border-l-4 border-[#444DDA] pl-3">
+                          ผลการตรวจสอบโดยรวม
+                        </h5>
+                        
+                        <div className="border-2 border-[#444DDA]/20 rounded-lg p-5 bg-[#F5F7FF]">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <div className="flex items-center mb-2">
+                                <div className={`h-2.5 w-2.5 rounded-full mr-2 ${
+                                  candidate.summaryResult.overallStatus === 'pass' ? 'bg-green-500' : 
+                                  candidate.summaryResult.overallStatus === 'fail' ? 'bg-red-500' : 
+                                  'bg-[#FFC107]'}`}></div>
+                                <h6 className="font-semibold text-gray-800 text-lg">
+                                  ผลการตรวจสอบโดยรวม: {' '}
+                                  <span className={
+                                    candidate.summaryResult.overallStatus === 'pass' ? 'text-green-600' : 
+                                    candidate.summaryResult.overallStatus === 'fail' ? 'text-red-600' : 
+                                    'text-[#FFC107]'
+                                  }>
+                                    {candidate.summaryResult.overallStatus === 'pass' ? 'ผ่าน' : 
+                                    candidate.summaryResult.overallStatus === 'fail' ? 'ไม่ผ่าน' : 'เสร็จสิ้น'}
+                                  </span>
+                                </h6>
+                              </div>
+                            </div>
+                            
+                            {/* ปุ่มดาวน์โหลดรายงานรวม */}
+                            {candidate.summaryResult.resultFile && (
+                              <button
+                                onClick={() => handleDownload(candidate.summaryResult.resultFile)}
+                                className="px-4 py-2 bg-[#444DDA] hover:bg-[#3B43BF] text-white text-sm font-medium rounded-lg transition-colors flex items-center shadow-md hover:shadow-lg"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                ดาวน์โหลดรายงานสรุป
+                              </button>
+                            )}
+                          </div>
+                          
+                          {/* แสดงไฟล์สรุป */}
+                          {candidate.summaryResult.resultFile && (
+                            <div className="flex items-center p-3 rounded-lg border border-[#444DDA]/20 bg-white">
+                              <div className="h-12 w-12 bg-[#444DDA]/10 rounded-lg flex items-center justify-center mr-4 text-[#444DDA]">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium" title={candidate.summaryResult.resultFileName || 'รายงานสรุป.pdf'}>
+                                  {candidate.summaryResult.resultFileName || 'รายงานสรุป.pdf'}
+                                </p>
+                                {candidate.summaryResult.resultFileSize && (
+                                  <p className="text-xs text-gray-500">
+                                    PDF • {formatFileSize(candidate.summaryResult.resultFileSize)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-6">
+                        <h5 className="text-md font-medium text-[#444DDA] mb-4 border-l-4 border-[#444DDA] pl-3">
+                          ผลการตรวจสอบโดยรวม
+                        </h5>
+                        <div className="p-4 bg-gray-50 rounded-lg text-center border border-gray-200">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="text-gray-500">การตรวจสอบเสร็จสมบูรณ์</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-6 text-center text-gray-500">
-                    ไม่มีไฟล์รายงานผลลัพธ์
-                  </div>
-                )}
-                
-                {candidate.result && candidate.result.resultNotes && (
-                  <div className="mt-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">หมายเหตุ</h4>
-                    <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                      <p className="text-sm text-gray-600">
-                        {candidate.result.resultNotes}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              );
+            })}
           </div>
-        ))}
+
+          {/* แสดงข้อความแจ้งสถานะเสร็จสิ้น */}
+          <div className="text-center p-6 bg-[#F5F7FF] rounded-lg border border-[#E0E4FF]">
+            <div className="flex justify-center mb-4">
+              <div className="h-14 w-14 rounded-full bg-[#444DDA]/10 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#444DDA]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <h4 className="text-lg font-medium text-[#444DDA] mb-2">การตรวจสอบประวัติเสร็จสมบูรณ์</h4>
+            <p className="text-gray-600">
+              การตรวจสอบประวัติของท่านได้เสร็จสิ้นแล้ว สามารถดาวน์โหลดผลลัพธ์ได้ที่ด้านบน
+            </p>
+            <p className="text-gray-500 text-sm mt-2">
+              หากมีข้อสงสัยเพิ่มเติม กรุณาติดต่อทีมงานของเรา
+            </p>
+          </div>
+        </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
   
   // คอมโพเนนต์แสดงสถานะยกเลิก
   const CancelledContent = ({ order }) => (
@@ -1418,15 +1656,17 @@ const OrderProgressBar = ({ currentStatus }) => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">สถานะ</p>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                    order.payment?.paymentStatus === 'completed' ? 'bg-green-50 text-green-700 border border-green-200' : 
-                    order.payment?.paymentStatus === 'pending' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : 
-                    'bg-gray-50 text-gray-700 border border-gray-200'
-                  }`}>
-                    {order.payment?.paymentStatus === 'completed' ? '✓ จ่ายแล้ว' : 
-                     order.payment?.paymentStatus === 'pending' ? '⏳ รอดำเนินการ' : 
-                     order.payment?.paymentStatus || 'ไม่ระบุ'}
-                  </span>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                  order.payment?.paymentStatus === 'completed' ? 'bg-green-50 text-green-700 border border-green-200' : 
+                  order.payment?.paymentStatus === 'pending' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : 
+                  order.payment?.paymentStatus === 'pending_verification' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                  'bg-gray-50 text-gray-700 border border-gray-200'
+                }`}>
+                  {order.payment?.paymentStatus === 'completed' ? '✓ จ่ายแล้ว' : 
+                  order.payment?.paymentStatus === 'pending' ? '⏳ รอดำเนินการ' : 
+                  order.payment?.paymentStatus === 'pending_verification' ? '🔍 รอตรวจสอบ' :
+                  order.payment?.paymentStatus || 'ไม่ระบุ'}
+                </span>
                 </div>
               </div>
             </div>
