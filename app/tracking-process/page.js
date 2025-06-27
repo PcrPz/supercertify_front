@@ -1,4 +1,3 @@
-// app/tracking-process/page.js
 "use client"
 import { useState } from 'react';
 import showToast from '@/services/toastService'; // เปลี่ยนจาก useToast เป็น showToast
@@ -120,7 +119,10 @@ export default function TrackingProcess() {
         {/* แสดงผลการค้นหา */}
         {trackingResult && (
           <div className="mt-8">
-            <TrackingResultCard order={trackingResult} />
+            <TrackingResultCard 
+              order={trackingResult} 
+              orderId={trackingResult._id} // เพิ่ม orderId เพื่อให้ดึงข้อมูลเพิ่มเติม
+            />
           </div>
         )}
         

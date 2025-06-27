@@ -1,68 +1,91 @@
-// app/api/email/results-completed/route.js
+// app/api/email/results-completed/route.js - ปรับปรุงแล้ว
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
 export async function POST(request) {
-  console.log(`DEBUG: [API Route] results-completed route called`);
+  const startTime = Date.now();
   
   try {
-    // อ่านข้อมูล request
-    const body = await request.json();
-    console.log(`DEBUG: [API Route] Request body received:`, body);
+    // 1. อ่านข้อมูล request
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { message: 'Invalid request body', error: parseError.message },
+        { status: 400 }
+      );
+    }
     
     const { 
       trackingNumber, 
       customerEmail, 
       customerName, 
       orderId, 
-      resultSummary 
+      resultSummary,
+      results
     } = body;
 
-    // ตรวจสอบข้อมูลที่จำเป็น
+
     if (!trackingNumber || !customerEmail) {
-      console.error(`DEBUG: [API Route] Missing required information:`, { trackingNumber, customerEmail });
+      console.error(`❌ [API Route] Missing required information:`, { 
+        trackingNumber: !!trackingNumber, 
+        customerEmail: !!customerEmail 
+      });
       return NextResponse.json(
-        { message: 'Missing required information' },
+        { message: 'Missing required information: trackingNumber and customerEmail are required' },
         { status: 400 }
       );
     }
 
-    // สร้าง transporter
-    console.log(`DEBUG: [API Route] Creating email transporter`);
-    console.log(`DEBUG: [API Route] Email config:`, {
-      host: process.env.EMAIL_HOST ? 'set' : 'missing',
-      port: process.env.EMAIL_PORT,
-      secure: process.env.EMAIL_SECURE === 'true',
-      user: process.env.EMAIL_USER ? 'set' : 'missing',
-      from: process.env.EMAIL_FROM,
-      siteUrl: process.env.SITE_URL
-    });
+    const requiredEnvVars = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 'EMAIL_PASSWORD', 'EMAIL_FROM'];
+    const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
     
+    if (missingEnvVars.length > 0) {
+      return NextResponse.json(
+        { message: `Missing environment variables: ${missingEnvVars.join(', ')}` },
+        { status: 500 }
+      );
+    }
+
+
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
+      port: parseInt(process.env.EMAIL_PORT),
       secure: process.env.EMAIL_SECURE === 'true',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
+      // เพิ่มการตั้งค่าเพิ่มเติม
+      debug: true, // เปิด debug mode
+      logger: true, // เปิด logging
     });
 
-    // ทดสอบการเชื่อมต่อ
+    // 5. ทดสอบการเชื่อมต่อ
+    console.log(`🔌 [API Route] Testing transporter connection...`);
     try {
-      console.log(`DEBUG: [API Route] Testing transporter connection`);
       await transporter.verify();
-      console.log(`DEBUG: [API Route] Transporter connection verified`);
+      console.log(`✅ [API Route] Transporter connection verified successfully`);
     } catch (verifyError) {
-      console.error(`DEBUG: [API Route] Transporter verification failed:`, verifyError);
-      throw new Error(`Email configuration error: ${verifyError.message}`);
+      console.error(`❌ [API Route] Transporter verification failed:`, {
+        message: verifyError.message,
+        code: verifyError.code,
+        command: verifyError.command
+      });
+      return NextResponse.json(
+        { message: `Email configuration error: ${verifyError.message}` },
+        { status: 500 }
+      );
     }
 
-    // สร้าง URL สำหรับการ redirect หลังจาก login
+    // 6. สร้าง URLs และเนื้อหาอีเมล
+    const siteUrl = process.env.SITE_URL || 'http://localhost:3000';
     const redirectUrl = encodeURIComponent(`/orders/${orderId}`);
-    const actionUrl = `${process.env.SITE_URL}/login?callbackUrl=${redirectUrl}`;
+    const actionUrl = `${siteUrl}/login?callbackUrl=${redirectUrl}`;
+    
 
-    // สร้าง HTML เนื้อหาอีเมล
+    // 7. สร้าง HTML เนื้อหาอีเมล (เหมือนเดิม)
     const emailContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
         <div style="text-align: center; margin-bottom: 20px;">
@@ -76,6 +99,7 @@ export async function POST(request) {
           <p>เรามีความยินดีที่จะแจ้งให้ทราบว่า ผลการตรวจสอบประวัติของรายการทั้งหมดในคำสั่งซื้อเสร็จสมบูรณ์แล้ว</p>
         </div>
         
+        ${resultSummary ? `
         <div style="margin-bottom: 20px;">
           <h3 style="margin-top: 0; color: #333;">สรุปผลการตรวจสอบ</h3>
           <table style="width: 100%; border-collapse: collapse;">
@@ -99,15 +123,7 @@ export async function POST(request) {
             ` : ''}
           </table>
         </div>
-        
-        <div style="margin-bottom: 20px;">
-          <h3 style="margin-top: 0; color: #333;">ขั้นตอนถัดไป</h3>
-          <ol style="padding-left: 20px; color: #555;">
-            <li style="margin-bottom: 10px;">ดูรายละเอียดผลการตรวจสอบทั้งหมดได้ในระบบของเรา</li>
-            <li style="margin-bottom: 10px;">ดาวน์โหลดรายงานผลการตรวจสอบในรูปแบบเอกสาร</li>
-            <li style="margin-bottom: 10px;">หากมีข้อสงสัยเกี่ยวกับผลการตรวจสอบ สามารถติดต่อทีมงานของเราได้</li>
-          </ol>
-        </div>
+        ` : ''}
         
         <div style="text-align: center; margin-top: 30px;">
           <a href="${actionUrl}" style="display: inline-block; background-color: #444DDA; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">ดูผลการตรวจสอบ</a>
@@ -131,7 +147,7 @@ export async function POST(request) {
       </div>
     `;
 
-    // ตั้งค่าอีเมล
+    // 8. ตั้งค่าและส่งอีเมล
     const mailOptions = {
       from: `"SuperCertify" <${process.env.EMAIL_FROM}>`,
       to: customerEmail,
@@ -139,36 +155,63 @@ export async function POST(request) {
       html: emailContent,
     };
     
-    console.log(`DEBUG: [API Route] Mail options:`, {
+    console.log(`📤 [API Route] Preparing to send email:`, {
       from: mailOptions.from,
       to: mailOptions.to,
       subject: mailOptions.subject,
+      contentLength: emailContent.length
     });
 
-    // ส่งอีเมล
+    console.log(`📨 [API Route] Sending email...`);
     let info;
     try {
-      console.log(`DEBUG: [API Route] Sending email...`);
       info = await transporter.sendMail(mailOptions);
-      console.log(`DEBUG: [API Route] Email sent successfully:`, {
+      console.log(`✅ [API Route] Email sent successfully:`, {
         messageId: info.messageId,
-        response: info.response
+        response: info.response?.slice(0, 100) + '...' // แสดงแค่ 100 ตัวแรก
       });
     } catch (sendError) {
-      console.error(`DEBUG: [API Route] Error sending email:`, sendError);
-      throw sendError;
+      console.error(`❌ [API Route] Error sending email:`, {
+        message: sendError.message,
+        code: sendError.code,
+        command: sendError.command,
+        stack: sendError.stack?.slice(0, 500) + '...'
+      });
+      
+      return NextResponse.json(
+        { 
+          message: 'Failed to send email', 
+          error: sendError.message,
+          errorCode: sendError.code 
+        },
+        { status: 500 }
+      );
     }
 
-    console.log(`DEBUG: [API Route] Sending success response`);
+    const endTime = Date.now();
+    console.log(`🏁 [API Route] Process completed in ${endTime - startTime}ms`);
+    
     return NextResponse.json({ 
       success: true,
       recipient: customerEmail,
-      messageId: info.messageId 
+      messageId: info.messageId,
+      processingTime: endTime - startTime
     });
+    
   } catch (error) {
-    console.error(`DEBUG: [API Route] Error in results-completed API route:`, error);
+    const endTime = Date.now();
+    console.error(`💥 [API Route] Unexpected error in results-completed API route:`, {
+      message: error.message,
+      stack: error.stack?.slice(0, 500) + '...',
+      processingTime: endTime - startTime
+    });
+    
     return NextResponse.json(
-      { message: 'Failed to send email', error: error.message },
+      { 
+        message: 'Internal server error', 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }
