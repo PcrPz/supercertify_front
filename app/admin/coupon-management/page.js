@@ -522,7 +522,6 @@ export default function AdminCouponManagement() {
                   required
                 >
                   <option value="PUBLIC">คูปองสาธารณะ</option>
-                  <option value="SPECIAL">คูปองพิเศษ</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
                   * คูปองแบบสอบถาม (SURVEY) จะถูกสร้างอัตโนมัติเมื่อผู้ใช้ทำแบบสอบถาม
